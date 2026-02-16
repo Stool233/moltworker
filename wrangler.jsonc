@@ -71,7 +71,8 @@
   // Secrets to configure via `wrangler secret put`:
   //
   // AI Provider (at least one set required):
-  // - ANTHROPIC_API_KEY: Direct Anthropic API key
+  // - ANTHROPIC_API_KEY: Direct Anthropic API key (recommended)
+  // - ANTHROPIC_BASE_URL: Optional custom Anthropic API endpoint
   // - OPENAI_API_KEY: Direct OpenAI API key
   // - Cloudflare AI Gateway (alternative to direct keys):
   //   - CLOUDFLARE_AI_GATEWAY_API_KEY: API key for requests through the gateway

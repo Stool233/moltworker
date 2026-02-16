@@ -378,7 +378,7 @@ All three are required. OpenClaw constructs the gateway URL from the account ID 
 npm run deploy
 ```
 
-When Cloudflare AI Gateway is configured, it takes precedence over direct `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
+When both direct provider keys and AI Gateway are configured, direct `ANTHROPIC_API_KEY` takes precedence for onboarding. To use AI Gateway exclusively, remove the direct provider keys.
 
 ### Choosing a Model
 
@@ -412,13 +412,13 @@ The previous `AI_GATEWAY_API_KEY` + `AI_GATEWAY_BASE_URL` approach is still supp
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `CLOUDFLARE_AI_GATEWAY_API_KEY` | Yes* | Your AI provider's API key, passed through the gateway (e.g., your Anthropic API key). Requires `CF_AI_GATEWAY_ACCOUNT_ID` and `CF_AI_GATEWAY_GATEWAY_ID` |
+| `ANTHROPIC_API_KEY` | Yes* | Direct Anthropic API key (recommended) |
+| `ANTHROPIC_BASE_URL` | No | Custom Anthropic API endpoint (defaults to api.anthropic.com) |
+| `OPENAI_API_KEY` | No | OpenAI API key (alternative provider) |
+| `CLOUDFLARE_AI_GATEWAY_API_KEY` | Yes* | Your AI provider's API key, passed through the gateway (alternative to direct keys). Requires `CF_AI_GATEWAY_ACCOUNT_ID` and `CF_AI_GATEWAY_GATEWAY_ID` |
 | `CF_AI_GATEWAY_ACCOUNT_ID` | Yes* | Your Cloudflare account ID (used to construct the gateway URL) |
 | `CF_AI_GATEWAY_GATEWAY_ID` | Yes* | Your AI Gateway ID (used to construct the gateway URL) |
 | `CF_AI_GATEWAY_MODEL` | No | Override default model: `provider/model-id` (e.g. `workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast`). See [Choosing a Model](#choosing-a-model) |
-| `ANTHROPIC_API_KEY` | Yes* | Direct Anthropic API key (alternative to AI Gateway) |
-| `ANTHROPIC_BASE_URL` | No | Direct Anthropic API base URL |
-| `OPENAI_API_KEY` | No | OpenAI API key (alternative provider) |
 | `AI_GATEWAY_API_KEY` | No | Legacy AI Gateway API key (deprecated, use `CLOUDFLARE_AI_GATEWAY_API_KEY` instead) |
 | `AI_GATEWAY_BASE_URL` | No | Legacy AI Gateway endpoint URL (deprecated) |
 | `CF_ACCESS_TEAM_DOMAIN` | Yes* | Cloudflare Access team domain (required for admin UI) |

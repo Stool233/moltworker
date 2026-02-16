@@ -7,18 +7,18 @@ export interface MoltbotEnv {
   Sandbox: DurableObjectNamespace<Sandbox>;
   ASSETS: Fetcher; // Assets binding for admin UI static files
   MOLTBOT_BUCKET: R2Bucket; // R2 bucket for persistent storage
-  // Cloudflare AI Gateway configuration (preferred)
+  // Direct provider configuration (preferred)
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_BASE_URL?: string; // Optional custom Anthropic API endpoint
+  OPENAI_API_KEY?: string;
+  // Cloudflare AI Gateway configuration (alternative)
   CF_AI_GATEWAY_ACCOUNT_ID?: string; // Cloudflare account ID for AI Gateway
   CF_AI_GATEWAY_GATEWAY_ID?: string; // AI Gateway ID
   CLOUDFLARE_AI_GATEWAY_API_KEY?: string; // API key for requests through the gateway
   CF_AI_GATEWAY_MODEL?: string; // Override model: "provider/model-id" e.g. "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-  // Legacy AI Gateway configuration (still supported for backward compat)
+  // Legacy AI Gateway configuration (deprecated, kept for backward compat)
   AI_GATEWAY_API_KEY?: string; // API key for the provider configured in AI Gateway
   AI_GATEWAY_BASE_URL?: string; // AI Gateway URL (e.g., https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic)
-  // Direct provider configuration
-  ANTHROPIC_API_KEY?: string;
-  ANTHROPIC_BASE_URL?: string;
-  OPENAI_API_KEY?: string;
   MOLTBOT_GATEWAY_TOKEN?: string; // Gateway token (mapped to OPENCLAW_GATEWAY_TOKEN for container)
   DEV_MODE?: string; // Set to 'true' for local dev (skips CF Access auth + openclaw device pairing)
   E2E_TEST_MODE?: string; // Set to 'true' for E2E tests (skips CF Access auth but keeps device pairing)

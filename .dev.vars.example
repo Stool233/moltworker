@@ -1,8 +1,9 @@
 # Copy this to .dev.vars and fill in your values
 # .dev.vars is gitignored and used by wrangler dev
 
-# AI Provider (at least one required)
+# AI Provider - Direct Anthropic connection (recommended)
 ANTHROPIC_API_KEY=sk-ant-...
+# ANTHROPIC_BASE_URL=https://api.anthropic.com
 # OPENAI_API_KEY=sk-...
 
 # Cloudflare AI Gateway (alternative to direct provider keys)
