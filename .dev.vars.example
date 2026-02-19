@@ -4,6 +4,7 @@
 # AI Provider - Direct Anthropic connection (recommended)
 ANTHROPIC_API_KEY=sk-ant-...
 # ANTHROPIC_BASE_URL=https://api.anthropic.com
+# ANTHROPIC_MODEL=claude-sonnet-4-6
 # OPENAI_API_KEY=sk-...
 
 # Cloudflare AI Gateway (alternative to direct provider keys)

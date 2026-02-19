@@ -152,6 +152,15 @@ try {
     console.log('Starting with empty config');
 }
 
+// Backup config before patching (safety net, stored in /tmp to avoid R2 sync)
+try {
+    if (fs.existsSync(configPath)) {
+        fs.copyFileSync(configPath, '/tmp/openclaw.json.pre-patch');
+    }
+} catch (e) {
+    console.warn('Failed to create config backup:', e.message);
+}
+
 config.gateway = config.gateway || {};
 config.channels = config.channels || {};
 
@@ -174,6 +183,73 @@ if (process.env.OPENCLAW_DEV_MODE === 'true') {
 // ANTHROPIC_BASE_URL is picked up natively by the Anthropic SDK,
 // so we don't need to patch the provider config. Writing a provider
 // entry without a models array breaks OpenClaw's config validation.
+
+// ── Provider Reconciliation ──
+// Ensures provider config matches current env vars on every startup,
+// even when R2 restores an old openclaw.json from a different provider.
+// Priority: Anthropic direct > Cloudflare AI Gateway > OpenAI direct
+
+// Anthropic model specs lookup (source: platform.claude.com/docs/en/about-claude/models/overview)
+const ANTHROPIC_MODELS = {
+    // Current generation
+    'claude-opus-4-6':              { name: 'Claude Opus 4.6',   contextWindow: 200000, maxTokens: 131072 },
+    'claude-sonnet-4-6':            { name: 'Claude Sonnet 4.6', contextWindow: 200000, maxTokens: 65536 },
+    'claude-haiku-4-5-20251001':    { name: 'Claude Haiku 4.5',  contextWindow: 200000, maxTokens: 65536 },
+    // Previous generation
+    'claude-sonnet-4-5-20250929':   { name: 'Claude Sonnet 4.5', contextWindow: 200000, maxTokens: 65536 },
+    'claude-opus-4-5-20251101':     { name: 'Claude Opus 4.5',   contextWindow: 200000, maxTokens: 65536 },
+    'claude-opus-4-1-20250805':     { name: 'Claude Opus 4.1',   contextWindow: 200000, maxTokens: 32768 },
+    'claude-sonnet-4-20250514':     { name: 'Claude Sonnet 4',   contextWindow: 200000, maxTokens: 65536 },
+    'claude-opus-4-20250514':       { name: 'Claude Opus 4',     contextWindow: 200000, maxTokens: 32768 },
+    'claude-3-haiku-20240307':      { name: 'Claude Haiku 3',    contextWindow: 200000, maxTokens: 4096 },
+};
+// Support alias IDs (without date suffix)
+const ANTHROPIC_ALIASES = {
+    'claude-opus-4-5':   'claude-opus-4-5-20251101',
+    'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
+    'claude-sonnet-4-0': 'claude-sonnet-4-20250514',
+    'claude-opus-4-0':   'claude-opus-4-20250514',
+    'claude-haiku-4-5':  'claude-haiku-4-5-20251001',
+};
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+config.models = config.models || {};
+config.models.providers = config.models.providers || {};
+config.agents = config.agents || {};
+config.agents.defaults = config.agents.defaults || {};
+
+const anthropicModel = process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
+const resolvedId = ANTHROPIC_ALIASES[anthropicModel] || anthropicModel;
+const specs = ANTHROPIC_MODELS[resolvedId] || { name: anthropicModel, contextWindow: 200000, maxTokens: 65536 };
+
+if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
+    // Anthropic direct — SDK reads apiKey/baseUrl from env vars natively
+    config.models.providers['anthropic'] = {
+        api: 'anthropic-messages',
+        models: [{ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens }],
+    };
+    if (!process.env.CF_AI_GATEWAY_MODEL) {
+        config.agents.defaults.model = { primary: 'anthropic/' + anthropicModel };
+    }
+    console.log('Provider reconciled: Anthropic direct, model=' + anthropicModel
+        + ' (context=' + specs.contextWindow + ', maxTokens=' + specs.maxTokens + ')');
+
+} else if (process.env.OPENAI_API_KEY
+           && !process.env.ANTHROPIC_API_KEY
+           && !process.env.CLOUDFLARE_AI_GATEWAY_API_KEY) {
+    // OpenAI direct
+    config.models.providers['openai'] = {
+        apiKey: process.env.OPENAI_API_KEY,
+        api: 'openai-completions',
+        models: [{ id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 16384 }],
+    };
+    if (!process.env.CF_AI_GATEWAY_MODEL) {
+        config.agents.defaults.model = { primary: 'openai/gpt-4o' };
+    }
+    console.log('Provider reconciled: OpenAI direct');
+}
+// Note: Cloudflare AI Gateway case is already handled by the
+// CF_AI_GATEWAY_MODEL section below.
 
 // AI Gateway model override (CF_AI_GATEWAY_MODEL=provider/model-id)
 // Adds a provider entry for any AI Gateway provider and sets it as default model.
