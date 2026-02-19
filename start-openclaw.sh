@@ -223,8 +223,10 @@ const resolvedId = ANTHROPIC_ALIASES[anthropicModel] || anthropicModel;
 const specs = ANTHROPIC_MODELS[resolvedId] || { name: anthropicModel, contextWindow: 200000, maxTokens: 65536 };
 
 if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
-    // Anthropic direct — SDK reads apiKey/baseUrl from env vars natively
+    // Anthropic direct
     config.models.providers['anthropic'] = {
+        baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+        apiKey: process.env.ANTHROPIC_API_KEY,
         api: 'anthropic-messages',
         models: [{ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens }],
     };
@@ -239,6 +241,7 @@ if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
            && !process.env.CLOUDFLARE_AI_GATEWAY_API_KEY) {
     // OpenAI direct
     config.models.providers['openai'] = {
+        baseUrl: 'https://api.openai.com/v1',
         apiKey: process.env.OPENAI_API_KEY,
         api: 'openai-completions',
         models: [{ id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 16384 }],
