@@ -222,19 +222,39 @@ const anthropicModel = process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
 const resolvedId = ANTHROPIC_ALIASES[anthropicModel] || anthropicModel;
 const specs = ANTHROPIC_MODELS[resolvedId] || { name: anthropicModel, contextWindow: 200000, maxTokens: 65536 };
 
+// Recent models to register alongside primary (primary first)
+const ANTHROPIC_RECENT = [
+    'claude-sonnet-4-6',
+    'claude-opus-4-6',
+    'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-5-20250929',
+    'claude-opus-4-5-20251101',
+];
+
+let reconciledPrimary = false;
+
 if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
-    // Anthropic direct
+    // Anthropic direct — register primary + recent models
+    const anthropicModelsArray = [];
+    anthropicModelsArray.push({ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens });
+    for (const mid of ANTHROPIC_RECENT) {
+        if (mid !== anthropicModel && ANTHROPIC_MODELS[mid]) {
+            const s = ANTHROPIC_MODELS[mid];
+            anthropicModelsArray.push({ id: mid, name: s.name, contextWindow: s.contextWindow, maxTokens: s.maxTokens });
+        }
+    }
+
     config.models.providers['anthropic'] = {
         baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
         apiKey: process.env.ANTHROPIC_API_KEY,
         api: 'anthropic-messages',
-        models: [{ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens }],
+        models: anthropicModelsArray,
     };
-    if (!process.env.CF_AI_GATEWAY_MODEL) {
-        config.agents.defaults.model = { primary: 'anthropic/' + anthropicModel };
-    }
+    config.agents.defaults.model = { primary: 'anthropic/' + anthropicModel };
+    reconciledPrimary = true;
     console.log('Provider reconciled: Anthropic direct, model=' + anthropicModel
-        + ' (context=' + specs.contextWindow + ', maxTokens=' + specs.maxTokens + ')');
+        + ' (' + anthropicModelsArray.length + ' models registered'
+        + ', context=' + specs.contextWindow + ', maxTokens=' + specs.maxTokens + ')');
 
 } else if (process.env.OPENAI_API_KEY
            && !process.env.ANTHROPIC_API_KEY
@@ -246,9 +266,8 @@ if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
         api: 'openai-completions',
         models: [{ id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 16384 }],
     };
-    if (!process.env.CF_AI_GATEWAY_MODEL) {
-        config.agents.defaults.model = { primary: 'openai/gpt-4o' };
-    }
+    config.agents.defaults.model = { primary: 'openai/gpt-4o' };
+    reconciledPrimary = true;
     console.log('Provider reconciled: OpenAI direct');
 }
 // Note: Cloudflare AI Gateway case is already handled by the
@@ -292,12 +311,50 @@ if (process.env.CF_AI_GATEWAY_MODEL) {
         };
         config.agents = config.agents || {};
         config.agents.defaults = config.agents.defaults || {};
-        config.agents.defaults.model = { primary: providerName + '/' + modelId };
-        console.log('AI Gateway model override: provider=' + providerName + ' model=' + modelId + ' via ' + baseUrl);
+        if (!reconciledPrimary) {
+            config.agents.defaults.model = { primary: providerName + '/' + modelId };
+        }
+        console.log('AI Gateway model override: provider=' + providerName + ' model=' + modelId + ' via ' + baseUrl
+            + (reconciledPrimary ? ' (primary kept from reconciliation)' : ''));
     } else {
         console.warn('CF_AI_GATEWAY_MODEL set but missing required config (account ID, gateway ID, or API key)');
     }
 }
+
+// ── Sync agents.list[].model with defaults ──
+// The default agent's model.primary overrides agents.defaults.model,
+// so we must keep them in sync after reconciliation.
+if (config.agents.defaults.model && Array.isArray(config.agents.list)) {
+    for (const agent of config.agents.list) {
+        if (agent.default || agent.id === 'main') {
+            agent.model = agent.model || {};
+            agent.model.primary = config.agents.defaults.model.primary;
+        }
+    }
+}
+
+// ── Build agents.defaults.models from all configured providers ──
+// This gives the UI a complete model catalog / allowlist.
+const defaultsModels = {};
+const providers = config.models.providers || {};
+for (const [providerName, providerConfig] of Object.entries(providers)) {
+    if (Array.isArray(providerConfig.models)) {
+        for (const model of providerConfig.models) {
+            const key = providerName + '/' + model.id;
+            defaultsModels[key] = { alias: model.name || model.id };
+        }
+    }
+}
+// Merge: preserve existing entries not covered by providers
+// (e.g., user-added dynamic gateway models like kimi-k2.5)
+const existing = config.agents.defaults.models || {};
+for (const [key, val] of Object.entries(existing)) {
+    if (!defaultsModels[key]) {
+        defaultsModels[key] = val;
+    }
+}
+config.agents.defaults.models = defaultsModels;
+console.log('agents.defaults.models synced: ' + Object.keys(defaultsModels).length + ' models');
 
 // Telegram configuration
 // Overwrite entire channel object to drop stale keys from old R2 backups
