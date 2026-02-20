@@ -21,7 +21,8 @@
  */
 
 import { Hono } from 'hono';
-import { getSandbox, Sandbox, type SandboxOptions } from '@cloudflare/sandbox';
+import { getSandbox, type SandboxOptions } from '@cloudflare/sandbox';
+import { MoltbotSandbox } from './sandbox';
 
 import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
@@ -47,7 +48,7 @@ function transformErrorMessage(message: string, host: string): string {
   return message;
 }
 
-export { Sandbox };
+export { MoltbotSandbox as Sandbox };
 
 /**
  * Validate required environment variables.
