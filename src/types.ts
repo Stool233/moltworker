@@ -28,10 +28,8 @@ export interface MoltbotEnv {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_DM_POLICY?: string;
   TELEGRAM_DM_ALLOW_FROM?: string; // Comma-separated list of allowed Telegram user IDs/names
-  TELEGRAM_DM_SCOPE?: string; // DM session scope: 'global' (default) or 'per-channel-peer'
   DISCORD_BOT_TOKEN?: string;
   DISCORD_DM_POLICY?: string;
-  DISCORD_DM_SCOPE?: string; // DM session scope: 'global' (default) or 'per-channel-peer'
   SLACK_BOT_TOKEN?: string;
   SLACK_APP_TOKEN?: string;
   // Cloudflare Access configuration for admin routes

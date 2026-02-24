@@ -380,10 +380,6 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
     // v2026.2.23: allowFrom now expects pure numeric IDs by default.
     // Enable name matching for backward compat with username-based allowFrom lists.
     config.channels.telegram.dangerouslyAllowNameMatching = true;
-    // v2026.2.23: session.dmScope defaults changed to 'per-channel-peer'.
-    // Explicitly set to 'global' to preserve existing behavior.
-    config.channels.telegram.session = config.channels.telegram.session || {};
-    config.channels.telegram.session.dmScope = process.env.TELEGRAM_DM_SCOPE || 'global';
 }
 
 // Discord configuration
@@ -399,9 +395,6 @@ if (process.env.DISCORD_BOT_TOKEN) {
         enabled: true,
         dm: dm,
     };
-    // v2026.2.23: session.dmScope defaults changed to 'per-channel-peer'.
-    config.channels.discord.session = config.channels.discord.session || {};
-    config.channels.discord.session.dmScope = process.env.DISCORD_DM_SCOPE || 'global';
 }
 
 // Slack configuration

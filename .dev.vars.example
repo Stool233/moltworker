@@ -39,10 +39,8 @@ MOLTBOT_GATEWAY_TOKEN=dev-token-change-in-prod
 # TELEGRAM_BOT_TOKEN=optional
 # TELEGRAM_DM_POLICY=pairing
 # TELEGRAM_DM_ALLOW_FROM=123456789,987654321
-# TELEGRAM_DM_SCOPE=global
 # DISCORD_BOT_TOKEN=optional
 # DISCORD_DM_POLICY=pairing
-# DISCORD_DM_SCOPE=global
 
 # CDP (Chrome DevTools Protocol) configuration for browser automation
 # CDP_SECRET=shared-secret-for-cdp-auth
