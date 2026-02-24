@@ -41,6 +41,8 @@ MOLTBOT_GATEWAY_TOKEN=dev-token-change-in-prod
 # TELEGRAM_DM_ALLOW_FROM=123456789,987654321
 # DISCORD_BOT_TOKEN=optional
 # DISCORD_DM_POLICY=pairing
+# FEISHU_APP_ID=cli_xxxx
+# FEISHU_APP_SECRET=xxxx
 
 # CDP (Chrome DevTools Protocol) configuration for browser automation
 # CDP_SECRET=shared-secret-for-cdp-auth
