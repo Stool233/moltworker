@@ -179,6 +179,12 @@ if (process.env.OPENCLAW_DEV_MODE === 'true') {
     config.gateway.controlUi.allowInsecureAuth = true;
 }
 
+// v2026.2.23: Control UI now requires allowedOrigins for non-loopback binds.
+// We use containerFetch() from CF Workers so the Host header is an internal address
+// and we can't predict all public origins. Security boundary is at CF Access layer.
+config.gateway.controlUi = config.gateway.controlUi || {};
+config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
+
 // Legacy AI Gateway base URL override:
 // ANTHROPIC_BASE_URL is picked up natively by the Anthropic SDK,
 // so we don't need to patch the provider config. Writing a provider
@@ -371,6 +377,13 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
     } else if (dmPolicy === 'open') {
         config.channels.telegram.allowFrom = ['*'];
     }
+    // v2026.2.23: allowFrom now expects pure numeric IDs by default.
+    // Enable name matching for backward compat with username-based allowFrom lists.
+    config.channels.telegram.dangerouslyAllowNameMatching = true;
+    // v2026.2.23: session.dmScope defaults changed to 'per-channel-peer'.
+    // Explicitly set to 'global' to preserve existing behavior.
+    config.channels.telegram.session = config.channels.telegram.session || {};
+    config.channels.telegram.session.dmScope = process.env.TELEGRAM_DM_SCOPE || 'global';
 }
 
 // Discord configuration
@@ -386,6 +399,9 @@ if (process.env.DISCORD_BOT_TOKEN) {
         enabled: true,
         dm: dm,
     };
+    // v2026.2.23: session.dmScope defaults changed to 'per-channel-peer'.
+    config.channels.discord.session = config.channels.discord.session || {};
+    config.channels.discord.session.dmScope = process.env.DISCORD_DM_SCOPE || 'global';
 }
 
 // Slack configuration
@@ -395,6 +411,14 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
         appToken: process.env.SLACK_APP_TOKEN,
         enabled: true,
     };
+}
+
+// v2026.2.23: streaming config changed from boolean to enum ('partial'|'off'|'adaptive').
+// Migrate old R2-restored configs that may still have boolean values.
+for (const [chName, chConfig] of Object.entries(config.channels || {})) {
+    if (chConfig && typeof chConfig.streaming === 'boolean') {
+        chConfig.streaming = chConfig.streaming ? 'partial' : 'off';
+    }
 }
 
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
