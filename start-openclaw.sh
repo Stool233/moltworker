@@ -362,19 +362,24 @@ for (const [key, val] of Object.entries(existing)) {
 config.agents.defaults.models = defaultsModels;
 console.log('agents.defaults.models synced: ' + Object.keys(defaultsModels).length + ' models');
 
-// Telegram configuration
-// Overwrite entire channel object to drop stale keys from old R2 backups
-// that would fail OpenClaw's strict config validation (see #47)
+// Channel configuration
+// Merge-overwrite: spread existing R2-restored config, then override env-driven fields.
+// This preserves user-customised keys (voice, groupPolicy, streaming, etc.)
+// while ensuring env vars always win. Breaking schema changes should be handled
+// by dedicated migration logic (see streaming boolean→enum below), not by
+// discarding the entire channel object.
 if (process.env.TELEGRAM_BOT_TOKEN) {
-    const dmPolicy = process.env.TELEGRAM_DM_POLICY || 'pairing';
+    const existing = config.channels.telegram || {};
+    const dmPolicy = process.env.TELEGRAM_DM_POLICY || existing.dmPolicy || 'pairing';
     config.channels.telegram = {
+        ...existing,
         botToken: process.env.TELEGRAM_BOT_TOKEN,
         enabled: true,
         dmPolicy: dmPolicy,
     };
     if (process.env.TELEGRAM_DM_ALLOW_FROM) {
         config.channels.telegram.allowFrom = process.env.TELEGRAM_DM_ALLOW_FROM.split(',');
-    } else if (dmPolicy === 'open') {
+    } else if (dmPolicy === 'open' && !config.channels.telegram.allowFrom) {
         config.channels.telegram.allowFrom = ['*'];
     }
     // v2026.2.23: allowFrom now expects pure numeric IDs by default.
@@ -385,12 +390,14 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
 // Discord configuration
 // Discord uses a nested dm object: dm.policy, dm.allowFrom (per DiscordDmConfig)
 if (process.env.DISCORD_BOT_TOKEN) {
-    const dmPolicy = process.env.DISCORD_DM_POLICY || 'pairing';
-    const dm = { policy: dmPolicy };
+    const existing = config.channels.discord || {};
+    const dmPolicy = process.env.DISCORD_DM_POLICY || (existing.dm && existing.dm.policy) || 'pairing';
+    const dm = { ...(existing.dm || {}), policy: dmPolicy };
     if (dmPolicy === 'open') {
-        dm.allowFrom = ['*'];
+        dm.allowFrom = dm.allowFrom || ['*'];
     }
     config.channels.discord = {
+        ...existing,
         token: process.env.DISCORD_BOT_TOKEN,
         enabled: true,
         dm: dm,
@@ -399,9 +406,22 @@ if (process.env.DISCORD_BOT_TOKEN) {
 
 // Slack configuration
 if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
+    const existing = config.channels.slack || {};
     config.channels.slack = {
+        ...existing,
         botToken: process.env.SLACK_BOT_TOKEN,
         appToken: process.env.SLACK_APP_TOKEN,
+        enabled: true,
+    };
+}
+
+// Feishu (Lark) configuration
+if (process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET) {
+    const existing = config.channels.feishu || {};
+    config.channels.feishu = {
+        ...existing,
+        appId: process.env.FEISHU_APP_ID,
+        appSecret: process.env.FEISHU_APP_SECRET,
         enabled: true,
     };
 }
