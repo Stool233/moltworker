@@ -26,12 +26,60 @@
   color: var(--text-primary);
 }
 
+/* Navigation tabs */
+.header-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.nav-tab {
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius);
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+  background-color: var(--surface-hover);
+}
+
+.nav-tab--active {
+  color: var(--text-primary);
+  border-color: var(--primary-color);
+  background-color: rgba(233, 69, 96, 0.1);
+}
+
+/* Main content */
 .app-main {
   flex: 1;
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+}
+
+.app-main--terminal {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
 }
 
 /* Responsive adjustments */
@@ -42,5 +90,14 @@
 
   .app-main {
     padding: 1rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .nav-tab {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
   }
 }

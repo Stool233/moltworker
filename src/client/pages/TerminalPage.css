@@ -1,0 +1,89 @@
+/* Terminal page layout */
+.terminal-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.terminal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.terminal-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot--connected {
+  background-color: var(--success-color);
+  box-shadow: 0 0 6px var(--success-color);
+}
+
+.status-dot--connecting {
+  background-color: var(--warning-color);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot--disconnected {
+  background-color: var(--error-color);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.status-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.terminal-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  transition: background-color 0.15s;
+}
+
+.terminal-btn:hover:not(:disabled) {
+  background-color: var(--primary-color);
+}
+
+.terminal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-container {
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+  background-color: #1a1a2e;
+}
+
+.terminal-container .xterm {
+  height: 100%;
+}
