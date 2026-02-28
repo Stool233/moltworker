@@ -13,6 +13,8 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   if (env.ANTHROPIC_API_KEY) envVars.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
   if (env.ANTHROPIC_MODEL) envVars.ANTHROPIC_MODEL = env.ANTHROPIC_MODEL;
   if (env.OPENAI_API_KEY) envVars.OPENAI_API_KEY = env.OPENAI_API_KEY;
+  if (env.OPENAI_MODEL) envVars.OPENAI_MODEL = env.OPENAI_MODEL;
+  if (env.OPENAI_BASE_URL) envVars.OPENAI_BASE_URL = env.OPENAI_BASE_URL;
 
   // Cloudflare AI Gateway configuration (alternative)
   if (env.CLOUDFLARE_AI_GATEWAY_API_KEY) {

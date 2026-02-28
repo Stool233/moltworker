@@ -104,17 +104,17 @@ fi
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "No existing config found, running openclaw onboard..."
 
-    # Priority: Anthropic direct > Cloudflare AI Gateway > OpenAI direct
+    # Priority: OpenAI direct > Anthropic direct > Cloudflare AI Gateway
     AUTH_ARGS=""
-    if [ -n "$ANTHROPIC_API_KEY" ]; then
+    if [ -n "$OPENAI_API_KEY" ]; then
+        AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY"
+    elif [ -n "$ANTHROPIC_API_KEY" ]; then
         AUTH_ARGS="--auth-choice apiKey --anthropic-api-key $ANTHROPIC_API_KEY"
     elif [ -n "$CLOUDFLARE_AI_GATEWAY_API_KEY" ] && [ -n "$CF_AI_GATEWAY_ACCOUNT_ID" ] && [ -n "$CF_AI_GATEWAY_GATEWAY_ID" ]; then
         AUTH_ARGS="--auth-choice cloudflare-ai-gateway-api-key \
             --cloudflare-ai-gateway-account-id $CF_AI_GATEWAY_ACCOUNT_ID \
             --cloudflare-ai-gateway-gateway-id $CF_AI_GATEWAY_GATEWAY_ID \
             --cloudflare-ai-gateway-api-key $CLOUDFLARE_AI_GATEWAY_API_KEY"
-    elif [ -n "$OPENAI_API_KEY" ]; then
-        AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY"
     fi
 
     openclaw onboard --non-interactive --accept-risk \
@@ -193,7 +193,7 @@ config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
 // ── Provider Reconciliation ──
 // Ensures provider config matches current env vars on every startup,
 // even when R2 restores an old openclaw.json from a different provider.
-// Priority: Anthropic direct > Cloudflare AI Gateway > OpenAI direct
+// Priority: OpenAI direct > Anthropic direct > Cloudflare AI Gateway
 
 // Anthropic model specs lookup (source: platform.claude.com/docs/en/about-claude/models/overview)
 const ANTHROPIC_MODELS = {
@@ -219,6 +219,13 @@ const ANTHROPIC_ALIASES = {
 };
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
+// OpenAI model specs
+const OPENAI_MODELS = {
+    'gpt-5.3':       { name: 'GPT-5.3',       contextWindow: 200000, maxTokens: 32768 },
+    'gpt-5.3-codex': { name: 'GPT-5.3 Codex', contextWindow: 200000, maxTokens: 65536 },
+};
+const DEFAULT_OPENAI_MODEL = 'gpt-5.3-codex';
+
 config.models = config.models || {};
 config.models.providers = config.models.providers || {};
 config.agents = config.agents || {};
@@ -239,7 +246,34 @@ const ANTHROPIC_RECENT = [
 
 let reconciledPrimary = false;
 
-if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
+if (process.env.OPENAI_API_KEY) {
+    // OpenAI direct — register primary + all known models
+    const openaiModel = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+    const openaiSpecs = OPENAI_MODELS[openaiModel] || { name: openaiModel, contextWindow: 200000, maxTokens: 65536 };
+
+    const OPENAI_RECENT = ['gpt-5.3-codex', 'gpt-5.3'];
+    const openaiModelsArray = [];
+    openaiModelsArray.push({ id: openaiModel, name: openaiSpecs.name, contextWindow: openaiSpecs.contextWindow, maxTokens: openaiSpecs.maxTokens });
+    for (const mid of OPENAI_RECENT) {
+        if (mid !== openaiModel && OPENAI_MODELS[mid]) {
+            const s = OPENAI_MODELS[mid];
+            openaiModelsArray.push({ id: mid, name: s.name, contextWindow: s.contextWindow, maxTokens: s.maxTokens });
+        }
+    }
+
+    config.models.providers['openai'] = {
+        baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+        apiKey: process.env.OPENAI_API_KEY,
+        api: 'openai-completions',
+        models: openaiModelsArray,
+    };
+    config.agents.defaults.model = { primary: 'openai/' + openaiModel };
+    reconciledPrimary = true;
+    console.log('Provider reconciled: OpenAI direct, model=' + openaiModel
+        + ' (' + openaiModelsArray.length + ' models registered'
+        + ', context=' + openaiSpecs.contextWindow + ', maxTokens=' + openaiSpecs.maxTokens + ')');
+
+} else if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
     // Anthropic direct — register primary + recent models
     const anthropicModelsArray = [];
     anthropicModelsArray.push({ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens });
@@ -261,20 +295,6 @@ if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
     console.log('Provider reconciled: Anthropic direct, model=' + anthropicModel
         + ' (' + anthropicModelsArray.length + ' models registered'
         + ', context=' + specs.contextWindow + ', maxTokens=' + specs.maxTokens + ')');
-
-} else if (process.env.OPENAI_API_KEY
-           && !process.env.ANTHROPIC_API_KEY
-           && !process.env.CLOUDFLARE_AI_GATEWAY_API_KEY) {
-    // OpenAI direct
-    config.models.providers['openai'] = {
-        baseUrl: 'https://api.openai.com/v1',
-        apiKey: process.env.OPENAI_API_KEY,
-        api: 'openai-completions',
-        models: [{ id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 16384 }],
-    };
-    config.agents.defaults.model = { primary: 'openai/gpt-4o' };
-    reconciledPrimary = true;
-    console.log('Provider reconciled: OpenAI direct');
 }
 // Note: Cloudflare AI Gateway case is already handled by the
 // CF_AI_GATEWAY_MODEL section below.

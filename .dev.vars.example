@@ -6,6 +6,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 # ANTHROPIC_BASE_URL=https://api.anthropic.com
 # ANTHROPIC_MODEL=claude-sonnet-4-6
 # OPENAI_API_KEY=sk-...
+# OPENAI_BASE_URL=https://api.openai.com/v1
+# OPENAI_MODEL=gpt-5.3-codex
 
 # Cloudflare AI Gateway (alternative to direct provider keys)
 # CLOUDFLARE_AI_GATEWAY_API_KEY=your-provider-api-key

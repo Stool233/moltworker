@@ -74,7 +74,9 @@
   // - ANTHROPIC_API_KEY: Direct Anthropic API key (recommended)
   // - ANTHROPIC_BASE_URL: Optional custom Anthropic API endpoint
   // - ANTHROPIC_MODEL: Override default Anthropic model (default: claude-sonnet-4-6)
-  // - OPENAI_API_KEY: Direct OpenAI API key
+  // - OPENAI_API_KEY: Direct OpenAI API key (highest priority if set)
+  // - OPENAI_MODEL: Override default OpenAI model (default: gpt-5.3-codex)
+  // - OPENAI_BASE_URL: Optional custom OpenAI API endpoint
   // - Cloudflare AI Gateway (alternative to direct keys):
   //   - CLOUDFLARE_AI_GATEWAY_API_KEY: API key for requests through the gateway
   //   - CF_AI_GATEWAY_ACCOUNT_ID: Your Cloudflare account ID

@@ -12,6 +12,8 @@ export interface MoltbotEnv {
   ANTHROPIC_BASE_URL?: string; // Optional custom Anthropic API endpoint
   ANTHROPIC_MODEL?: string; // Override default Anthropic model ID (default: claude-sonnet-4-6)
   OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;    // Override default OpenAI model ID (default: gpt-5.3-codex)
+  OPENAI_BASE_URL?: string; // Optional custom OpenAI API endpoint
   // Cloudflare AI Gateway configuration (alternative)
   CF_AI_GATEWAY_ACCOUNT_ID?: string; // Cloudflare account ID for AI Gateway
   CF_AI_GATEWAY_GATEWAY_ID?: string; // AI Gateway ID
