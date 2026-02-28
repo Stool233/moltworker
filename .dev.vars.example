@@ -9,6 +9,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 # OPENAI_BASE_URL=https://api.openai.com/v1
 # OPENAI_MODEL=gpt-5.3-codex
 
+# OpenRouter (OpenAI-compatible, highest priority when set)
+# OPENROUTER_API_KEY=sk-or-v1-...
+# OPENROUTER_MODEL=moonshotai/kimi-k2.5
+
 # Cloudflare AI Gateway (alternative to direct provider keys)
 # CLOUDFLARE_AI_GATEWAY_API_KEY=your-provider-api-key
 # CF_AI_GATEWAY_ACCOUNT_ID=your-account-id

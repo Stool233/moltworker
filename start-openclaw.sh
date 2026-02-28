@@ -104,9 +104,11 @@ fi
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "No existing config found, running openclaw onboard..."
 
-    # Priority: OpenAI direct > Anthropic direct > Cloudflare AI Gateway
+    # Priority: OpenRouter > OpenAI direct > Anthropic direct > Cloudflare AI Gateway
     AUTH_ARGS=""
-    if [ -n "$OPENAI_API_KEY" ]; then
+    if [ -n "$OPENROUTER_API_KEY" ]; then
+        AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENROUTER_API_KEY"
+    elif [ -n "$OPENAI_API_KEY" ]; then
         AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY"
     elif [ -n "$ANTHROPIC_API_KEY" ]; then
         AUTH_ARGS="--auth-choice apiKey --anthropic-api-key $ANTHROPIC_API_KEY"
@@ -225,6 +227,13 @@ const OPENAI_MODELS = {
 };
 const DEFAULT_OPENAI_MODEL = 'gpt-5.3-codex';
 
+// OpenRouter model specs (via openrouter.ai, OpenAI-compatible API)
+const OPENROUTER_MODELS = {
+    'moonshotai/kimi-k2.5':     { name: 'Kimi K2.5',          contextWindow: 262144, maxTokens: 65536 },
+    'moonshotai/kimi-k2':       { name: 'Kimi K2',            contextWindow: 262144, maxTokens: 65536 },
+};
+const DEFAULT_OPENROUTER_MODEL = 'moonshotai/kimi-k2.5';
+
 config.models = config.models || {};
 config.models.providers = config.models.providers || {};
 config.agents = config.agents || {};
@@ -245,7 +254,32 @@ const ANTHROPIC_RECENT = [
 
 let reconciledPrimary = false;
 
-if (process.env.OPENAI_API_KEY) {
+if (process.env.OPENROUTER_API_KEY) {
+    // OpenRouter — highest priority, OpenAI-compatible API
+    const openrouterModel = process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
+    const openrouterSpecs = OPENROUTER_MODELS[openrouterModel] || { name: openrouterModel, contextWindow: 262144, maxTokens: 65536 };
+
+    const openrouterModelsArray = [];
+    openrouterModelsArray.push({ id: openrouterModel, name: openrouterSpecs.name, contextWindow: openrouterSpecs.contextWindow, maxTokens: openrouterSpecs.maxTokens });
+    for (const [mid, s] of Object.entries(OPENROUTER_MODELS)) {
+        if (mid !== openrouterModel) {
+            openrouterModelsArray.push({ id: mid, name: s.name, contextWindow: s.contextWindow, maxTokens: s.maxTokens });
+        }
+    }
+
+    config.models.providers['openrouter'] = {
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: process.env.OPENROUTER_API_KEY,
+        api: 'openai-completions',
+        models: openrouterModelsArray,
+    };
+    config.agents.defaults.model = { primary: 'openrouter/' + openrouterModel };
+    reconciledPrimary = true;
+    console.log('Provider reconciled: OpenRouter, model=' + openrouterModel
+        + ' (' + openrouterModelsArray.length + ' models registered'
+        + ', context=' + openrouterSpecs.contextWindow + ', maxTokens=' + openrouterSpecs.maxTokens + ')');
+
+} else if (process.env.OPENAI_API_KEY) {
     // OpenAI direct — register primary + all known models
     const openaiModel = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
     const openaiSpecs = OPENAI_MODELS[openaiModel] || { name: openaiModel, contextWindow: 200000, maxTokens: 65536 };

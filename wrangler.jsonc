@@ -77,6 +77,8 @@
   // - OPENAI_API_KEY: Direct OpenAI API key (highest priority if set)
   // - OPENAI_MODEL: Override default OpenAI model (default: gpt-5.3-codex)
   // - OPENAI_BASE_URL: Optional custom OpenAI API endpoint
+  // - OPENROUTER_API_KEY: OpenRouter API key (uses Kimi K2.5 by default, highest priority)
+  // - OPENROUTER_MODEL: Override default OpenRouter model (default: moonshotai/kimi-k2.5)
   // - Cloudflare AI Gateway (alternative to direct keys):
   //   - CLOUDFLARE_AI_GATEWAY_API_KEY: API key for requests through the gateway
   //   - CF_AI_GATEWAY_ACCOUNT_ID: Your Cloudflare account ID
