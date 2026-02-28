@@ -260,15 +260,17 @@ if (process.env.OPENAI_API_KEY) {
         }
     }
 
-    config.models.providers['openai'] = {
+    config.models.providers['openai-codex'] = {
         baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
         apiKey: process.env.OPENAI_API_KEY,
         api: 'openai-responses',
         models: openaiModelsArray,
     };
-    config.agents.defaults.model = { primary: 'openai/' + openaiModel };
+    // Clean up stale 'openai' provider that older versions may have created
+    delete config.models.providers['openai'];
+    config.agents.defaults.model = { primary: 'openai-codex/' + openaiModel };
     reconciledPrimary = true;
-    console.log('Provider reconciled: OpenAI direct, model=' + openaiModel
+    console.log('Provider reconciled: OpenAI Codex (API key), model=' + openaiModel
         + ' (' + openaiModelsArray.length + ' models registered'
         + ', context=' + openaiSpecs.contextWindow + ', maxTokens=' + openaiSpecs.maxTokens + ')');
 
@@ -350,10 +352,19 @@ if (process.env.CF_AI_GATEWAY_MODEL) {
 // The default agent's model.primary overrides agents.defaults.model,
 // so we must keep them in sync after reconciliation.
 if (config.agents.defaults.model && Array.isArray(config.agents.list)) {
+    const newPrimary = config.agents.defaults.model.primary;
+    // Stale provider names from older config versions
+    const staleProviders = ['openai'];
     for (const agent of config.agents.list) {
         if (agent.default || agent.id === 'main') {
             agent.model = agent.model || {};
-            agent.model.primary = config.agents.defaults.model.primary;
+            agent.model.primary = newPrimary;
+        } else if (agent.model && agent.model.primary) {
+            // Fix any agent referencing a stale/removed provider
+            const agentProvider = agent.model.primary.split('/')[0];
+            if (staleProviders.includes(agentProvider)) {
+                agent.model.primary = newPrimary;
+            }
         }
     }
 }
