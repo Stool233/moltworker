@@ -221,8 +221,8 @@ const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 // OpenAI model specs
 const OPENAI_MODELS = {
-    'gpt-5.3':       { name: 'GPT-5.3',       contextWindow: 200000, maxTokens: 32768 },
-    'gpt-5.3-codex': { name: 'GPT-5.3 Codex', contextWindow: 200000, maxTokens: 65536 },
+    'gpt-5.3':       { name: 'GPT-5.3',       contextWindow: 400000, maxTokens: 128000 },
+    'gpt-5.3-codex': { name: 'GPT-5.3 Codex', contextWindow: 400000, maxTokens: 128000 },
 };
 const DEFAULT_OPENAI_MODEL = 'gpt-5.3-codex';
 
@@ -264,7 +264,7 @@ if (process.env.OPENAI_API_KEY) {
     config.models.providers['openai'] = {
         baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
         apiKey: process.env.OPENAI_API_KEY,
-        api: 'openai-completions',
+        api: 'openai-responses',
         models: openaiModelsArray,
     };
     config.agents.defaults.model = { primary: 'openai/' + openaiModel };
