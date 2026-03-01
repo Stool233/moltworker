@@ -6,6 +6,8 @@ import {
   ensureMoltbotGateway,
   findExistingMoltbotProcess,
   syncToR2,
+  getRcloneConfig,
+  saveRcloneConfig,
   waitForProcess,
 } from '../gateway';
 import { getSandbox, type SandboxOptions } from '@cloudflare/sandbox';
@@ -252,7 +254,7 @@ adminApi.post('/storage/sync', async (c) => {
 
   const sandbox = c.get('sandbox');
 
-  const result = await syncToR2(sandbox, c.env);
+  const result = await syncToR2(sandbox, c.env, { force: true });
 
   if (result.success) {
     return c.json({
@@ -316,6 +318,60 @@ adminApi.post('/gateway/restart', async (c) => {
   }
 });
 
+// GET /api/admin/rclone-settings - Get rclone sync configuration
+adminApi.get('/rclone-settings', async (c) => {
+  try {
+    const config = await getRcloneConfig(c.env.MOLTBOT_BUCKET);
+    return c.json(config);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: errorMessage }, 500);
+  }
+});
+
+// PUT /api/admin/rclone-settings - Update rclone sync configuration
+adminApi.put('/rclone-settings', async (c) => {
+  try {
+    const body = await c.req.json();
+
+    // Validate fields
+    const errors: string[] = [];
+    if (typeof body.enabled !== 'boolean') errors.push('enabled must be a boolean');
+    if (typeof body.transfers !== 'number' || body.transfers < 1 || body.transfers > 64)
+      errors.push('transfers must be 1-64');
+    if (typeof body.checkers !== 'number' || body.checkers < 1 || body.checkers > 64)
+      errors.push('checkers must be 1-64');
+    if (typeof body.syncInterval !== 'number' || body.syncInterval < 10 || body.syncInterval > 3600)
+      errors.push('syncInterval must be 10-3600');
+    if (typeof body.tpslimit !== 'number' || body.tpslimit < 0 || body.tpslimit > 1000)
+      errors.push('tpslimit must be 0-1000');
+    if (typeof body.bwlimit !== 'string' || !/^(0|[1-9]\d*[KkMmGg]?)$/.test(body.bwlimit))
+      errors.push('bwlimit must be "0" or a value like "10M"');
+    if (typeof body.maxTransfer !== 'string' || !/^(0|[1-9]\d*[KkMmGg]?)$/.test(body.maxTransfer))
+      errors.push('maxTransfer must be "0" or a value like "500M"');
+
+    if (errors.length > 0) {
+      return c.json({ error: 'Validation failed', details: errors }, 400);
+    }
+
+    const config = {
+      enabled: body.enabled,
+      transfers: body.transfers,
+      checkers: body.checkers,
+      bwlimit: body.bwlimit,
+      tpslimit: body.tpslimit,
+      maxTransfer: body.maxTransfer,
+      syncInterval: body.syncInterval,
+    };
+
+    await saveRcloneConfig(c.env.MOLTBOT_BUCKET, config);
+    return c.json({ success: true, config });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: errorMessage }, 500);
+  }
+});
+
 // GET /api/admin/sandbox/status - Get sandbox status
 adminApi.get('/sandbox/status', async (c) => {
   const maintenanceMode = c.get('maintenanceMode');
@@ -353,7 +409,7 @@ adminApi.post('/sandbox/shutdown', async (c) => {
     if (c.env.R2_ACCESS_KEY_ID && c.env.R2_SECRET_ACCESS_KEY && c.env.CF_ACCOUNT_ID) {
       try {
         const sandbox = c.get('sandbox');
-        syncResult = await syncToR2(sandbox, c.env);
+        syncResult = await syncToR2(sandbox, c.env, { force: true });
         console.log('[SHUTDOWN] R2 sync result:', syncResult.success);
       } catch (syncErr) {
         console.error('[SHUTDOWN] R2 sync failed (continuing with shutdown):', syncErr);

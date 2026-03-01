@@ -1,12 +1,16 @@
-import type { MoltbotEnv } from '../types';
+import type { MoltbotEnv, RcloneSyncConfig } from '../types';
 
 /**
  * Build environment variables to pass to the OpenClaw container process
  *
  * @param env - Worker environment bindings
+ * @param options - Optional extra config (e.g. rclone settings)
  * @returns Environment variables record
  */
-export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
+export function buildEnvVars(
+  env: MoltbotEnv,
+  options?: { rcloneConfig?: RcloneSyncConfig },
+): Record<string, string> {
   const envVars: Record<string, string> = {};
 
   // Direct provider keys (preferred)
@@ -62,6 +66,18 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   if (env.R2_ACCESS_KEY_ID) envVars.R2_ACCESS_KEY_ID = env.R2_ACCESS_KEY_ID;
   if (env.R2_SECRET_ACCESS_KEY) envVars.R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY;
   if (env.R2_BUCKET_NAME) envVars.R2_BUCKET_NAME = env.R2_BUCKET_NAME;
+
+  // Rclone sync configuration (read from R2, passed to start-openclaw.sh)
+  if (options?.rcloneConfig) {
+    const rc = options.rcloneConfig;
+    envVars.RCLONE_ENABLED = String(rc.enabled);
+    envVars.RCLONE_TRANSFERS = String(rc.transfers);
+    envVars.RCLONE_CHECKERS = String(rc.checkers);
+    envVars.RCLONE_BWLIMIT = rc.bwlimit;
+    envVars.RCLONE_TPSLIMIT = String(rc.tpslimit);
+    envVars.RCLONE_MAX_TRANSFER = rc.maxTransfer;
+    envVars.RCLONE_SYNC_INTERVAL = String(rc.syncInterval);
+  }
 
   return envVars;
 }

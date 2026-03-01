@@ -51,7 +51,11 @@ EOF
     echo "Rclone configured for bucket: $R2_BUCKET"
 }
 
-RCLONE_FLAGS="--transfers=16 --fast-list --s3-no-check-bucket"
+RCLONE_FLAGS="--transfers=${RCLONE_TRANSFERS:-16} --checkers=${RCLONE_CHECKERS:-8} --fast-list --s3-no-check-bucket"
+# Append optional rclone flags from environment
+[ -n "$RCLONE_BWLIMIT" ] && [ "$RCLONE_BWLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --bwlimit=$RCLONE_BWLIMIT"
+[ -n "$RCLONE_TPSLIMIT" ] && [ "$RCLONE_TPSLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --tpslimit=$RCLONE_TPSLIMIT"
+[ -n "$RCLONE_MAX_TRANSFER" ] && [ "$RCLONE_MAX_TRANSFER" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --max-transfer=$RCLONE_MAX_TRANSFER"
 
 # ============================================================
 # RESTORE FROM R2
@@ -505,15 +509,16 @@ EOFPATCH
 # ============================================================
 # BACKGROUND SYNC LOOP
 # ============================================================
-if r2_configured; then
-    echo "Starting background R2 sync loop..."
+if r2_configured && [ "${RCLONE_ENABLED:-true}" = "true" ]; then
+    SYNC_INTERVAL="${RCLONE_SYNC_INTERVAL:-30}"
+    echo "Starting background R2 sync loop (interval: ${SYNC_INTERVAL}s)..."
     (
         MARKER=/tmp/.last-sync-marker
         LOGFILE=/tmp/r2-sync.log
         touch "$MARKER"
 
         while true; do
-            sleep 30
+            sleep "$SYNC_INTERVAL"
 
             CHANGED=/tmp/.changed-files
             {

@@ -1,6 +1,6 @@
 import type { Sandbox } from '@cloudflare/sandbox';
-import type { MoltbotEnv } from '../types';
-import { getR2BucketName } from '../config';
+import type { MoltbotEnv, RcloneSyncConfig } from '../types';
+import { getR2BucketName, RCLONE_SETTINGS_KEY, DEFAULT_RCLONE_CONFIG } from '../config';
 import { ensureRcloneConfig } from './r2';
 
 export interface SyncResult {
@@ -10,11 +10,55 @@ export interface SyncResult {
   details?: string;
 }
 
-const RCLONE_FLAGS = '--transfers=16 --fast-list --s3-no-check-bucket';
 const LAST_SYNC_FILE = '/tmp/.last-sync';
 
 function rcloneRemote(env: MoltbotEnv, prefix: string): string {
   return `r2:${getR2BucketName(env)}/${prefix}`;
+}
+
+/**
+ * Read rclone sync config from R2, merging with defaults.
+ */
+export async function getRcloneConfig(bucket: R2Bucket): Promise<RcloneSyncConfig> {
+  try {
+    const obj = await bucket.get(RCLONE_SETTINGS_KEY);
+    if (obj) {
+      const stored = (await obj.json()) as Partial<RcloneSyncConfig>;
+      return { ...DEFAULT_RCLONE_CONFIG, ...stored };
+    }
+  } catch (e) {
+    console.warn('Failed to read rclone config from R2:', e);
+  }
+  return { ...DEFAULT_RCLONE_CONFIG };
+}
+
+/**
+ * Save rclone sync config to R2.
+ */
+export async function saveRcloneConfig(bucket: R2Bucket, config: RcloneSyncConfig): Promise<void> {
+  await bucket.put(RCLONE_SETTINGS_KEY, JSON.stringify(config));
+}
+
+/**
+ * Build rclone CLI flags from config.
+ */
+export function buildRcloneFlags(config: RcloneSyncConfig): string {
+  const flags = [
+    `--transfers=${config.transfers}`,
+    `--checkers=${config.checkers}`,
+    '--fast-list',
+    '--s3-no-check-bucket',
+  ];
+  if (config.bwlimit && config.bwlimit !== '0') {
+    flags.push(`--bwlimit=${config.bwlimit}`);
+  }
+  if (config.tpslimit > 0) {
+    flags.push(`--tpslimit=${config.tpslimit}`);
+  }
+  if (config.maxTransfer && config.maxTransfer !== '0') {
+    flags.push(`--max-transfer=${config.maxTransfer}`);
+  }
+  return flags.join(' ');
 }
 
 /**
@@ -34,10 +78,23 @@ async function detectConfigDir(sandbox: Sandbox): Promise<string | null> {
 /**
  * Sync OpenClaw config and workspace from container to R2 for persistence.
  * Uses rclone for direct S3 API access (no FUSE mount overhead).
+ *
+ * When sync is disabled in config, automatic syncs are skipped unless
+ * force=true (used for manual "Backup Now" and shutdown sync).
  */
-export async function syncToR2(sandbox: Sandbox, env: MoltbotEnv): Promise<SyncResult> {
+export async function syncToR2(
+  sandbox: Sandbox,
+  env: MoltbotEnv,
+  options?: { force?: boolean },
+): Promise<SyncResult> {
   if (!(await ensureRcloneConfig(sandbox, env))) {
     return { success: false, error: 'R2 storage is not configured' };
+  }
+
+  // Check if sync is enabled (unless forced)
+  const rcloneConfig = await getRcloneConfig(env.MOLTBOT_BUCKET);
+  if (!rcloneConfig.enabled && !options?.force) {
+    return { success: true, details: 'Sync is disabled' };
   }
 
   const configDir = await detectConfigDir(sandbox);
@@ -50,10 +107,11 @@ export async function syncToR2(sandbox: Sandbox, env: MoltbotEnv): Promise<SyncR
   }
 
   const remote = (prefix: string) => rcloneRemote(env, prefix);
+  const flags = buildRcloneFlags(rcloneConfig);
 
   // Sync config (rclone sync propagates deletions)
   const configResult = await sandbox.exec(
-    `rclone sync ${configDir}/ ${remote('openclaw/')} ${RCLONE_FLAGS} --exclude='*.lock' --exclude='*.log' --exclude='*.tmp' --exclude='.git/**'`,
+    `rclone sync ${configDir}/ ${remote('openclaw/')} ${flags} --exclude='*.lock' --exclude='*.log' --exclude='*.tmp' --exclude='.git/**'`,
     { timeout: 120000 },
   );
   if (!configResult.success) {
@@ -66,13 +124,13 @@ export async function syncToR2(sandbox: Sandbox, env: MoltbotEnv): Promise<SyncR
 
   // Sync workspace (non-fatal, rclone sync propagates deletions)
   await sandbox.exec(
-    `test -d /root/clawd && rclone sync /root/clawd/ ${remote('workspace/')} ${RCLONE_FLAGS} --exclude='skills/**' --exclude='.git/**' || true`,
+    `test -d /root/clawd && rclone sync /root/clawd/ ${remote('workspace/')} ${flags} --exclude='skills/**' --exclude='.git/**' || true`,
     { timeout: 120000 },
   );
 
   // Sync skills (non-fatal)
   await sandbox.exec(
-    `test -d /root/clawd/skills && rclone sync /root/clawd/skills/ ${remote('skills/')} ${RCLONE_FLAGS} || true`,
+    `test -d /root/clawd/skills && rclone sync /root/clawd/skills/ ${remote('skills/')} ${flags} || true`,
     { timeout: 120000 },
   );
 

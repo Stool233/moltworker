@@ -75,6 +75,22 @@ export type AppEnv = {
 /**
  * JWT payload from Cloudflare Access
  */
+/**
+ * Rclone sync configuration stored in R2
+ */
+export interface RcloneSyncConfig {
+  enabled: boolean;
+  transfers: number;
+  checkers: number;
+  bwlimit: string;       // "10M", "0"=unlimited
+  tpslimit: number;      // 0=unlimited
+  maxTransfer: string;    // "500M", "0"=unlimited
+  syncInterval: number;   // seconds
+}
+
+/**
+ * JWT payload from Cloudflare Access
+ */
 export interface JWTPayload {
   aud: string[];
   email: string;

@@ -9,12 +9,15 @@ import {
   getSandboxStatus,
   shutdownSandbox,
   startSandbox,
+  getRcloneSettings,
+  updateRcloneSettings,
   AuthError,
   type PendingDevice,
   type PairedDevice,
   type DeviceListResponse,
   type StorageStatusResponse,
   type SandboxStatusResponse,
+  type RcloneSyncConfig,
 } from '../api';
 import './AdminPage.css';
 
@@ -60,6 +63,10 @@ export default function AdminPage() {
   const [restartInProgress, setRestartInProgress] = useState(false);
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [sandboxActionInProgress, setSandboxActionInProgress] = useState(false);
+  const [rcloneConfig, setRcloneConfig] = useState<RcloneSyncConfig | null>(null);
+  const [rcloneForm, setRcloneForm] = useState<RcloneSyncConfig | null>(null);
+  const [rcloneFormDirty, setRcloneFormDirty] = useState(false);
+  const [rcloneSaving, setRcloneSaving] = useState(false);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -103,11 +110,23 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchRcloneSettings = useCallback(async () => {
+    try {
+      const config = await getRcloneSettings();
+      setRcloneConfig(config);
+      setRcloneForm(config);
+      setRcloneFormDirty(false);
+    } catch (err) {
+      console.error('Failed to fetch rclone settings:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDevices();
     fetchStorageStatus();
     fetchSandboxStatus();
-  }, [fetchDevices, fetchStorageStatus, fetchSandboxStatus]);
+    fetchRcloneSettings();
+  }, [fetchDevices, fetchStorageStatus, fetchSandboxStatus, fetchRcloneSettings]);
 
   const handleApprove = async (requestId: string) => {
     setActionInProgress(requestId);
@@ -252,6 +271,27 @@ export default function AdminPage() {
     }
   };
 
+  const handleRcloneChange = (field: keyof RcloneSyncConfig, value: string | number | boolean) => {
+    if (!rcloneForm) return;
+    setRcloneForm({ ...rcloneForm, [field]: value });
+    setRcloneFormDirty(true);
+  };
+
+  const handleRcloneSave = async () => {
+    if (!rcloneForm) return;
+    setRcloneSaving(true);
+    try {
+      await updateRcloneSettings(rcloneForm);
+      setRcloneConfig(rcloneForm);
+      setRcloneFormDirty(false);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save sync settings');
+    } finally {
+      setRcloneSaving(false);
+    }
+  };
+
   return (
     <div className="devices-page">
       {error && (
@@ -307,6 +347,116 @@ export default function AdminPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {storageStatus?.configured && rcloneForm && (
+        <section className="devices-section sync-section">
+          <div className="section-header">
+            <h2>Sync Settings</h2>
+          </div>
+          <div className="sync-toggle-row">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('enabled', e.target.checked)}
+              />
+              <span className="toggle-slider" />
+            </label>
+            <span className="toggle-label">
+              {rcloneForm.enabled ? 'Auto-sync enabled' : 'Auto-sync disabled'}
+            </span>
+          </div>
+          <p className="hint">
+            Controls automatic background sync to R2. Manual backups and shutdown sync always run regardless of this setting.
+          </p>
+          <div className={`form-grid ${!rcloneForm.enabled ? 'form-disabled' : ''}`}>
+            <div className="form-group">
+              <label className="form-label">Transfers</label>
+              <input
+                type="number"
+                className="form-input"
+                min={1}
+                max={64}
+                value={rcloneForm.transfers}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('transfers', parseInt(e.target.value) || 1)}
+              />
+              <span className="form-hint">Parallel file transfers (1-64)</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Checkers</label>
+              <input
+                type="number"
+                className="form-input"
+                min={1}
+                max={64}
+                value={rcloneForm.checkers}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('checkers', parseInt(e.target.value) || 1)}
+              />
+              <span className="form-hint">Parallel file checkers (1-64)</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Bandwidth Limit</label>
+              <input
+                type="text"
+                className="form-input"
+                value={rcloneForm.bwlimit}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('bwlimit', e.target.value)}
+              />
+              <span className="form-hint">e.g. "10M", "0" = unlimited</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">TPS Limit</label>
+              <input
+                type="number"
+                className="form-input"
+                min={0}
+                max={1000}
+                value={rcloneForm.tpslimit}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('tpslimit', parseInt(e.target.value) || 0)}
+              />
+              <span className="form-hint">API transactions/sec (0 = unlimited)</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Max Transfer</label>
+              <input
+                type="text"
+                className="form-input"
+                value={rcloneForm.maxTransfer}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('maxTransfer', e.target.value)}
+              />
+              <span className="form-hint">e.g. "500M", "0" = unlimited</span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Sync Interval</label>
+              <input
+                type="number"
+                className="form-input"
+                min={10}
+                max={3600}
+                value={rcloneForm.syncInterval}
+                disabled={!rcloneForm.enabled}
+                onChange={(e) => handleRcloneChange('syncInterval', parseInt(e.target.value) || 10)}
+              />
+              <span className="form-hint">Seconds between syncs (10-3600)</span>
+            </div>
+          </div>
+          <div className="form-actions">
+            <button
+              className="btn btn-primary"
+              onClick={handleRcloneSave}
+              disabled={!rcloneFormDirty || rcloneSaving}
+            >
+              {rcloneSaving && <ButtonSpinner />}
+              {rcloneSaving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </section>
       )}
 
       <section className={`devices-section sandbox-section ${sandboxStatus?.maintenanceMode ? 'sandbox-stopped' : 'sandbox-running'}`}>

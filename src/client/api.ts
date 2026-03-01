@@ -167,3 +167,28 @@ export async function startSandbox(): Promise<SandboxActionResponse> {
     method: 'POST',
   });
 }
+
+// Rclone sync configuration
+
+export interface RcloneSyncConfig {
+  enabled: boolean;
+  transfers: number;
+  checkers: number;
+  bwlimit: string;
+  tpslimit: number;
+  maxTransfer: string;
+  syncInterval: number;
+}
+
+export async function getRcloneSettings(): Promise<RcloneSyncConfig> {
+  return apiRequest<RcloneSyncConfig>('/rclone-settings');
+}
+
+export async function updateRcloneSettings(
+  config: RcloneSyncConfig,
+): Promise<{ success: boolean; config: RcloneSyncConfig; error?: string }> {
+  return apiRequest<{ success: boolean; config: RcloneSyncConfig }>('/rclone-settings', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}

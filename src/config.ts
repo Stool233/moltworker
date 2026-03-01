@@ -15,3 +15,17 @@ export const STARTUP_TIMEOUT_MS = 180_000;
 export function getR2BucketName(env?: { R2_BUCKET_NAME?: string }): string {
   return env?.R2_BUCKET_NAME || 'moltbot-data';
 }
+
+/** R2 key for rclone sync settings */
+export const RCLONE_SETTINGS_KEY = '_system/rclone-settings';
+
+/** Default rclone sync configuration */
+export const DEFAULT_RCLONE_CONFIG: import('./types').RcloneSyncConfig = {
+  enabled: true,
+  transfers: 4,
+  checkers: 4,
+  bwlimit: '10M',
+  tpslimit: 10,
+  maxTransfer: '500M',
+  syncInterval: 120,
+};

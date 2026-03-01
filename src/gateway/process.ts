@@ -3,6 +3,7 @@ import type { MoltbotEnv } from '../types';
 import { MOLTBOT_PORT, STARTUP_TIMEOUT_MS } from '../config';
 import { buildEnvVars } from './env';
 import { ensureRcloneConfig } from './r2';
+import { getRcloneConfig } from './sync';
 
 /**
  * Find an existing OpenClaw gateway process
@@ -90,7 +91,16 @@ export async function ensureMoltbotGateway(sandbox: Sandbox, env: MoltbotEnv): P
 
   // Start a new OpenClaw gateway
   console.log('Starting new OpenClaw gateway...');
-  const envVars = buildEnvVars(env);
+
+  // Read rclone config from R2 to pass as env vars to the container
+  let rcloneConfig;
+  try {
+    rcloneConfig = await getRcloneConfig(env.MOLTBOT_BUCKET);
+  } catch (e) {
+    console.warn('Failed to read rclone config, using defaults:', e);
+  }
+
+  const envVars = buildEnvVars(env, { rcloneConfig });
   const command = '/usr/local/bin/start-openclaw.sh';
 
   console.log('Starting process with command:', command);
