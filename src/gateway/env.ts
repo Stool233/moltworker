@@ -67,16 +67,17 @@ export function buildEnvVars(
   if (env.R2_SECRET_ACCESS_KEY) envVars.R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY;
   if (env.R2_BUCKET_NAME) envVars.R2_BUCKET_NAME = env.R2_BUCKET_NAME;
 
-  // Rclone sync configuration (read from R2, passed to start-openclaw.sh)
+  // Sync configuration (read from R2, passed to start-openclaw.sh)
+  // Uses SYNC_ prefix to avoid collision with rclone's built-in RCLONE_* env vars
   if (options?.rcloneConfig) {
     const rc = options.rcloneConfig;
-    envVars.RCLONE_ENABLED = String(rc.enabled);
-    envVars.RCLONE_TRANSFERS = String(rc.transfers);
-    envVars.RCLONE_CHECKERS = String(rc.checkers);
-    envVars.RCLONE_BWLIMIT = rc.bwlimit;
-    envVars.RCLONE_TPSLIMIT = String(rc.tpslimit);
-    envVars.RCLONE_MAX_TRANSFER = rc.maxTransfer;
-    envVars.RCLONE_SYNC_INTERVAL = String(rc.syncInterval);
+    envVars.SYNC_ENABLED = String(rc.enabled);
+    envVars.SYNC_TRANSFERS = String(rc.transfers);
+    envVars.SYNC_CHECKERS = String(rc.checkers);
+    envVars.SYNC_BWLIMIT = rc.bwlimit;
+    envVars.SYNC_TPSLIMIT = String(rc.tpslimit);
+    envVars.SYNC_MAX_TRANSFER = rc.maxTransfer;
+    envVars.SYNC_INTERVAL = String(rc.syncInterval);
   }
 
   return envVars;

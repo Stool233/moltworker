@@ -51,11 +51,12 @@ EOF
     echo "Rclone configured for bucket: $R2_BUCKET"
 }
 
-RCLONE_FLAGS="--transfers=${RCLONE_TRANSFERS:-16} --checkers=${RCLONE_CHECKERS:-8} --fast-list --s3-no-check-bucket"
-# Append optional rclone flags from environment
-[ -n "$RCLONE_BWLIMIT" ] && [ "$RCLONE_BWLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --bwlimit=$RCLONE_BWLIMIT"
-[ -n "$RCLONE_TPSLIMIT" ] && [ "$RCLONE_TPSLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --tpslimit=$RCLONE_TPSLIMIT"
-[ -n "$RCLONE_MAX_TRANSFER" ] && [ "$RCLONE_MAX_TRANSFER" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --max-transfer=$RCLONE_MAX_TRANSFER"
+RCLONE_FLAGS="--transfers=${SYNC_TRANSFERS:-16} --checkers=${SYNC_CHECKERS:-8} --fast-list --s3-no-check-bucket"
+# Append optional rclone flags from SYNC_* environment variables
+# (using SYNC_ prefix to avoid collision with rclone's built-in RCLONE_* env vars)
+[ -n "$SYNC_BWLIMIT" ] && [ "$SYNC_BWLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --bwlimit=$SYNC_BWLIMIT"
+[ -n "$SYNC_TPSLIMIT" ] && [ "$SYNC_TPSLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --tpslimit=$SYNC_TPSLIMIT"
+[ -n "$SYNC_MAX_TRANSFER" ] && [ "$SYNC_MAX_TRANSFER" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --max-transfer=$SYNC_MAX_TRANSFER"
 
 # ============================================================
 # RESTORE FROM R2
@@ -509,16 +510,16 @@ EOFPATCH
 # ============================================================
 # BACKGROUND SYNC LOOP
 # ============================================================
-if r2_configured && [ "${RCLONE_ENABLED:-true}" = "true" ]; then
-    SYNC_INTERVAL="${RCLONE_SYNC_INTERVAL:-30}"
-    echo "Starting background R2 sync loop (interval: ${SYNC_INTERVAL}s)..."
+if r2_configured && [ "${SYNC_ENABLED:-true}" = "true" ]; then
+    BG_SYNC_INTERVAL="${SYNC_INTERVAL:-30}"
+    echo "Starting background R2 sync loop (interval: ${BG_SYNC_INTERVAL}s)..."
     (
         MARKER=/tmp/.last-sync-marker
         LOGFILE=/tmp/r2-sync.log
         touch "$MARKER"
 
         while true; do
-            sleep "$SYNC_INTERVAL"
+            sleep "$BG_SYNC_INTERVAL"
 
             CHANGED=/tmp/.changed-files
             {
