@@ -32,6 +32,12 @@ publicRoutes.get('/logo-small.png', (c) => {
 
 // GET /api/status - Public health check for gateway status (no auth required)
 publicRoutes.get('/api/status', async (c) => {
+  // In maintenance mode, return immediately without touching the sandbox
+  // (any sandbox RPC call would trigger container auto-creation)
+  if (c.get('maintenanceMode')) {
+    return c.json({ ok: false, status: 'stopped' });
+  }
+
   const sandbox = c.get('sandbox');
 
   try {

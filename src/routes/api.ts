@@ -31,16 +31,20 @@ const adminApi = new Hono<AppEnv>();
 // Middleware: Verify Cloudflare Access JWT for all admin routes
 adminApi.use('*', createAccessMiddleware({ type: 'json' }));
 
+// Middleware: Block sandbox-touching routes during maintenance mode.
+// Only allow routes that don't need the container (status, shutdown, start, settings).
+adminApi.use('*', async (c, next) => {
+  if (!c.get('maintenanceMode')) return next();
+
+  const path = new URL(c.req.url).pathname.replace('/api/admin', '');
+  const allowed = ['/sandbox/status', '/sandbox/shutdown', '/sandbox/start', '/rclone-settings'];
+  if (allowed.some((p) => path.startsWith(p))) return next();
+
+  return c.json({ error: 'Sandbox is stopped. Start the sandbox first.' }, 503);
+});
+
 // GET /api/admin/devices - List pending and paired devices
 adminApi.get('/devices', async (c) => {
-  // In maintenance mode, return empty lists without touching the sandbox
-  if (c.get('maintenanceMode')) {
-    return c.json({
-      pending: [],
-      paired: [],
-      error: 'Sandbox is stopped. Start the sandbox to manage devices.',
-    });
-  }
 
   const sandbox = c.get('sandbox');
 
@@ -247,11 +251,6 @@ adminApi.get('/storage', async (c) => {
 
 // POST /api/admin/storage/sync - Trigger a manual sync to R2
 adminApi.post('/storage/sync', async (c) => {
-  // In maintenance mode, reject sync
-  if (c.get('maintenanceMode')) {
-    return c.json({ success: false, error: 'Sandbox is stopped. Start the sandbox first.' }, 400);
-  }
-
   const sandbox = c.get('sandbox');
 
   const result = await syncToR2(sandbox, c.env, { force: true });
@@ -277,11 +276,6 @@ adminApi.post('/storage/sync', async (c) => {
 
 // POST /api/admin/gateway/restart - Kill the current gateway and start a new one
 adminApi.post('/gateway/restart', async (c) => {
-  // In maintenance mode, reject restart
-  if (c.get('maintenanceMode')) {
-    return c.json({ error: 'Sandbox is stopped. Start the sandbox first.' }, 400);
-  }
-
   const sandbox = c.get('sandbox');
 
   try {
