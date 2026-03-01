@@ -67,7 +67,9 @@ export class MoltbotSandbox extends Sandbox<MoltbotEnv> {
 
     try {
       const process = await findExistingMoltbotProcess(this);
-      if (!process || process.status !== 'running') {
+      if (process?.status === 'starting') {
+        console.log('[HEALTH] Gateway is still starting, skipping this check');
+      } else if (!process || process.status !== 'running') {
         console.log('[HEALTH] Gateway not running, restarting...');
         await ensureMoltbotGateway(this, this.env);
         console.log('[HEALTH] Gateway restarted successfully');
