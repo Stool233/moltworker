@@ -4,7 +4,42 @@ import { ensureMoltbotGateway, findExistingMoltbotProcess } from './gateway';
 
 const HEALTH_CHECK_INTERVAL_SECONDS = 60;
 
+/** R2 key used to persist maintenance mode flag */
+export const MAINTENANCE_FLAG_KEY = '_system/sandbox-shutdown';
+
 export class MoltbotSandbox extends Sandbox<MoltbotEnv> {
+  /**
+   * Handle custom maintenance routes before delegating to base Sandbox.
+   *
+   * /__maintenance/shutdown — cancel health checks and kill gateway process
+   */
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/__maintenance/shutdown' && request.method === 'POST') {
+      console.log('[MAINTENANCE] Entering maintenance mode');
+      // Cancel health check schedules so the DO can become idle
+      this.deleteSchedules('checkGatewayHealth');
+
+      // Kill gateway process
+      try {
+        const proc = await findExistingMoltbotProcess(this);
+        if (proc) {
+          await proc.kill();
+          console.log('[MAINTENANCE] Gateway process killed');
+        }
+      } catch (err) {
+        console.error('[MAINTENANCE] Error killing process:', err);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return super.fetch(request);
+  }
+
   onStart() {
     super.onStart();
     // Schedule the first health check after container starts
@@ -17,6 +52,19 @@ export class MoltbotSandbox extends Sandbox<MoltbotEnv> {
 
   async checkGatewayHealth() {
     console.log('[HEALTH] Running gateway health check...');
+
+    // Check maintenance flag — if active, skip and don't reschedule
+    try {
+      const flag = await this.env.MOLTBOT_BUCKET.head(MAINTENANCE_FLAG_KEY);
+      if (flag !== null) {
+        console.log('[HEALTH] Maintenance mode active, skipping health check');
+        this.deleteSchedules('checkGatewayHealth');
+        return;
+      }
+    } catch (err) {
+      console.error('[HEALTH] Failed to check maintenance flag, continuing:', err);
+    }
+
     try {
       const process = await findExistingMoltbotProcess(this);
       if (!process || process.status !== 'running') {

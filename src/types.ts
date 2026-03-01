@@ -67,6 +67,7 @@ export type AppEnv = {
   Bindings: MoltbotEnv;
   Variables: {
     sandbox: Sandbox;
+    maintenanceMode: boolean;
     accessUser?: AccessUser;
   };
 };

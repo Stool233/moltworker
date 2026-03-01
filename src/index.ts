@@ -22,7 +22,7 @@
 
 import { Hono } from 'hono';
 import { getSandbox, type SandboxOptions } from '@cloudflare/sandbox';
-import { MoltbotSandbox } from './sandbox';
+import { MoltbotSandbox, MAINTENANCE_FLAG_KEY } from './sandbox';
 
 import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
@@ -32,6 +32,7 @@ import { publicRoutes, api, adminUi, debug, cdp } from './routes';
 import { redactSensitiveParams } from './utils/logging';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
+import maintenancePageHtml from './assets/maintenance.html';
 
 /**
  * Transform error messages from the gateway to be more user-friendly.
@@ -134,9 +135,21 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-// Middleware: Initialize sandbox for all requests
+// Middleware: Check maintenance mode and initialize sandbox
 app.use('*', async (c, next) => {
-  const options = buildSandboxOptions(c.env);
+  // Check maintenance flag in R2 (head() is fast and doesn't wake the container)
+  let maintenanceMode = false;
+  try {
+    const flag = await c.env.MOLTBOT_BUCKET.head(MAINTENANCE_FLAG_KEY);
+    maintenanceMode = flag !== null;
+  } catch {
+    // If R2 check fails, assume normal mode
+  }
+  c.set('maintenanceMode', maintenanceMode);
+
+  const options = maintenanceMode
+    ? { sleepAfter: '30s' } // Let container sleep quickly in maintenance mode
+    : buildSandboxOptions(c.env);
   const sandbox = getSandbox(c.env.Sandbox, 'moltbot', options);
   c.set('sandbox', sandbox);
   await next();
@@ -229,6 +242,15 @@ app.route('/debug', debug);
 // =============================================================================
 
 app.all('*', async (c) => {
+  // In maintenance mode, return 503 without touching the sandbox
+  if (c.get('maintenanceMode')) {
+    const isWebSocketRequest = c.req.raw.headers.get('Upgrade')?.toLowerCase() === 'websocket';
+    if (isWebSocketRequest) {
+      return c.json({ error: 'Sandbox is in maintenance mode' }, 503);
+    }
+    return c.html(maintenancePageHtml, 503);
+  }
+
   const sandbox = c.get('sandbox');
   const request = c.req.raw;
   const url = new URL(request.url);

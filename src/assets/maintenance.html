@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maintenance - Moltworker</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        color: #e0e0e0;
+        padding: 20px;
+      }
+
+      .container {
+        text-align: center;
+        max-width: 500px;
+      }
+
+      .logo {
+        width: 200px;
+        height: auto;
+        margin-bottom: 40px;
+        opacity: 0.5;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 500;
+        margin-bottom: 16px;
+        color: #fbbf24;
+      }
+
+      .status {
+        font-size: 0.9rem;
+        color: #a0a0a0;
+        margin-bottom: 30px;
+        line-height: 1.6;
+      }
+
+      .admin-link {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 10px 24px;
+        background: #e94560;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: background 0.15s ease;
+      }
+
+      .admin-link:hover {
+        background: #ff6b6b;
+      }
+
+      .info {
+        font-size: 0.8rem;
+        color: #707070;
+        margin-top: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img src="/logo.png" alt="Moltworker" class="logo" />
+
+      <h1>Sandbox Stopped</h1>
+
+      <p class="status">
+        The sandbox container has been manually shut down to save costs.<br />
+        An administrator can restart it from the admin panel.
+      </p>
+
+      <a href="/_admin/" class="admin-link">Go to Admin Panel</a>
+
+      <p class="info">The sandbox will start automatically once re-enabled.</p>
+    </div>
+  </body>
+</html>

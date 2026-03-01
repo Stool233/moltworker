@@ -6,11 +6,15 @@ import {
   restartGateway,
   getStorageStatus,
   triggerSync,
+  getSandboxStatus,
+  shutdownSandbox,
+  startSandbox,
   AuthError,
   type PendingDevice,
   type PairedDevice,
   type DeviceListResponse,
   type StorageStatusResponse,
+  type SandboxStatusResponse,
 } from '../api';
 import './AdminPage.css';
 
@@ -49,11 +53,13 @@ export default function AdminPage() {
   const [pending, setPending] = useState<PendingDevice[]>([]);
   const [paired, setPaired] = useState<PairedDevice[]>([]);
   const [storageStatus, setStorageStatus] = useState<StorageStatusResponse | null>(null);
+  const [sandboxStatus, setSandboxStatus] = useState<SandboxStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [restartInProgress, setRestartInProgress] = useState(false);
   const [syncInProgress, setSyncInProgress] = useState(false);
+  const [sandboxActionInProgress, setSandboxActionInProgress] = useState(false);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -88,10 +94,20 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchSandboxStatus = useCallback(async () => {
+    try {
+      const status = await getSandboxStatus();
+      setSandboxStatus(status);
+    } catch (err) {
+      console.error('Failed to fetch sandbox status:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDevices();
     fetchStorageStatus();
-  }, [fetchDevices, fetchStorageStatus]);
+    fetchSandboxStatus();
+  }, [fetchDevices, fetchStorageStatus, fetchSandboxStatus]);
 
   const handleApprove = async (requestId: string) => {
     setActionInProgress(requestId);
@@ -172,6 +188,70 @@ export default function AdminPage() {
     }
   };
 
+  const handleShutdownSandbox = async () => {
+    if (
+      !confirm(
+        'Are you sure you want to shut down the sandbox?\n\n' +
+          'This will:\n' +
+          '- Sync data to R2 (if configured)\n' +
+          '- Stop the gateway process\n' +
+          '- Let the container sleep to save costs\n\n' +
+          'You can restart it anytime from this panel.',
+      )
+    ) {
+      return;
+    }
+
+    setSandboxActionInProgress(true);
+    try {
+      const result = await shutdownSandbox();
+      if (result.success) {
+        setError(null);
+        setSandboxStatus({ status: 'stopped', maintenanceMode: true });
+      } else {
+        setError(result.error || 'Failed to shut down sandbox');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to shut down sandbox');
+    } finally {
+      setSandboxActionInProgress(false);
+    }
+  };
+
+  const handleStartSandbox = async () => {
+    setSandboxActionInProgress(true);
+    try {
+      const result = await startSandbox();
+      if (result.success) {
+        setError(null);
+        setSandboxStatus({ status: 'starting', maintenanceMode: false });
+        // Poll for status updates until running
+        const pollInterval = setInterval(async () => {
+          try {
+            const status = await getSandboxStatus();
+            setSandboxStatus(status);
+            if (status.status === 'running') {
+              clearInterval(pollInterval);
+              // Refresh devices and storage status once sandbox is running
+              fetchDevices();
+              fetchStorageStatus();
+            }
+          } catch {
+            // Keep polling on error
+          }
+        }, 5000);
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 300000);
+      } else {
+        setError(result.error || 'Failed to start sandbox');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start sandbox');
+    } finally {
+      setSandboxActionInProgress(false);
+    }
+  };
+
   return (
     <div className="devices-page">
       {error && (
@@ -220,7 +300,7 @@ export default function AdminPage() {
             <button
               className="btn btn-secondary btn-sm"
               onClick={handleSync}
-              disabled={syncInProgress}
+              disabled={syncInProgress || sandboxStatus?.maintenanceMode}
             >
               {syncInProgress && <ButtonSpinner />}
               {syncInProgress ? 'Syncing...' : 'Backup Now'}
@@ -229,13 +309,57 @@ export default function AdminPage() {
         </div>
       )}
 
+      <section className={`devices-section sandbox-section ${sandboxStatus?.maintenanceMode ? 'sandbox-stopped' : 'sandbox-running'}`}>
+        <div className="section-header">
+          <div className="sandbox-title">
+            <h2>Sandbox Controls</h2>
+            {sandboxStatus && (
+              <span className={`sandbox-status-badge ${sandboxStatus.status}`}>
+                <span className="status-dot" />
+                {sandboxStatus.status === 'running'
+                  ? 'Running'
+                  : sandboxStatus.status === 'starting'
+                    ? 'Starting...'
+                    : sandboxStatus.status === 'stopped'
+                      ? 'Stopped'
+                      : 'Unknown'}
+              </span>
+            )}
+          </div>
+          {sandboxStatus?.maintenanceMode ? (
+            <button
+              className="btn btn-success"
+              onClick={handleStartSandbox}
+              disabled={sandboxActionInProgress}
+            >
+              {sandboxActionInProgress && <ButtonSpinner />}
+              {sandboxActionInProgress ? 'Starting...' : 'Start Sandbox'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-danger"
+              onClick={handleShutdownSandbox}
+              disabled={sandboxActionInProgress || sandboxStatus?.status === 'starting'}
+            >
+              {sandboxActionInProgress && <ButtonSpinner />}
+              {sandboxActionInProgress ? 'Shutting down...' : 'Shutdown Sandbox'}
+            </button>
+          )}
+        </div>
+        <p className="hint">
+          {sandboxStatus?.maintenanceMode
+            ? 'The sandbox container is stopped to save costs. Click "Start Sandbox" to resume. Cold start takes 1-2 minutes.'
+            : 'Shut down the sandbox container when not in use to save costs. Data will be synced to R2 before shutdown.'}
+        </p>
+      </section>
+
       <section className="devices-section gateway-section">
         <div className="section-header">
           <h2>Gateway Controls</h2>
           <button
             className="btn btn-danger"
             onClick={handleRestartGateway}
-            disabled={restartInProgress}
+            disabled={restartInProgress || sandboxStatus?.maintenanceMode}
           >
             {restartInProgress && <ButtonSpinner />}
             {restartInProgress ? 'Restarting...' : 'Restart Gateway'}

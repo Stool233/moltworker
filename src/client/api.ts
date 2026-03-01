@@ -137,3 +137,33 @@ export async function triggerSync(): Promise<SyncResponse> {
     method: 'POST',
   });
 }
+
+// Sandbox lifecycle management
+
+export interface SandboxStatusResponse {
+  status: 'running' | 'starting' | 'stopped' | 'unknown';
+  maintenanceMode: boolean;
+}
+
+export async function getSandboxStatus(): Promise<SandboxStatusResponse> {
+  return apiRequest<SandboxStatusResponse>('/sandbox/status');
+}
+
+export interface SandboxActionResponse {
+  success: boolean;
+  message?: string;
+  synced?: boolean;
+  error?: string;
+}
+
+export async function shutdownSandbox(): Promise<SandboxActionResponse> {
+  return apiRequest<SandboxActionResponse>('/sandbox/shutdown', {
+    method: 'POST',
+  });
+}
+
+export async function startSandbox(): Promise<SandboxActionResponse> {
+  return apiRequest<SandboxActionResponse>('/sandbox/start', {
+    method: 'POST',
+  });
+}
