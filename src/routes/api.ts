@@ -404,7 +404,7 @@ adminApi.get('/sandbox/status', async (c) => {
 // POST /api/admin/sandbox/shutdown - Shut down the sandbox container
 adminApi.post('/sandbox/shutdown', async (c) => {
   try {
-    // 1. Sync data to R2 if credentials are available
+    // 1. Sync data to R2 before destroying the container
     let syncResult = null;
     if (c.env.R2_ACCESS_KEY_ID && c.env.R2_SECRET_ACCESS_KEY && c.env.CF_ACCOUNT_ID) {
       try {
@@ -416,22 +416,22 @@ adminApi.post('/sandbox/shutdown', async (c) => {
       }
     }
 
-    // 2. Call DO's maintenance endpoint to cancel health checks and kill gateway
-    const doId = c.env.Sandbox.idFromName('moltbot');
-    const doStub = c.env.Sandbox.get(doId);
-    await doStub.fetch(new Request('http://do/__maintenance/shutdown', { method: 'POST' }));
-    console.log('[SHUTDOWN] DO maintenance shutdown completed');
-
-    // 3. Write maintenance flag to R2
+    // 2. Write maintenance flag to R2 (before destroy, so health checks won't restart)
     await c.env.MOLTBOT_BUCKET.put(
       MAINTENANCE_FLAG_KEY,
       JSON.stringify({ shutdownAt: new Date().toISOString() }),
     );
     console.log('[SHUTDOWN] Maintenance flag written to R2');
 
+    // 3. Call DO to cancel health checks and destroy the container
+    const doId = c.env.Sandbox.idFromName('moltbot');
+    const doStub = c.env.Sandbox.get(doId);
+    await doStub.fetch(new Request('http://do/__maintenance/shutdown', { method: 'POST' }));
+    console.log('[SHUTDOWN] Container destroyed');
+
     return c.json({
       success: true,
-      message: 'Sandbox shutting down. Container will sleep within ~30 seconds.',
+      message: 'Sandbox shut down. Container has been destroyed.',
       synced: syncResult?.success ?? false,
     });
   } catch (error) {

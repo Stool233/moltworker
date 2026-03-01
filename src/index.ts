@@ -147,9 +147,10 @@ app.use('*', async (c, next) => {
   }
   c.set('maintenanceMode', maintenanceMode);
 
-  const options = maintenanceMode
-    ? { sleepAfter: '30s' } // Let container sleep quickly in maintenance mode
-    : buildSandboxOptions(c.env);
+  // In maintenance mode, container has been destroyed — getSandbox will create
+  // a fresh instance on next start. Use normal options so SANDBOX_SLEEP_AFTER
+  // takes effect from the very first getSandbox call.
+  const options = buildSandboxOptions(c.env);
   const sandbox = getSandbox(c.env.Sandbox, 'moltbot', options);
   c.set('sandbox', sandbox);
   await next();

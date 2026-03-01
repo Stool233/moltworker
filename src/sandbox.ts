@@ -18,18 +18,15 @@ export class MoltbotSandbox extends Sandbox<MoltbotEnv> {
 
     if (url.pathname === '/__maintenance/shutdown' && request.method === 'POST') {
       console.log('[MAINTENANCE] Entering maintenance mode');
-      // Cancel health check schedules so the DO can become idle
+      // Cancel health check schedules
       this.deleteSchedules('checkGatewayHealth');
 
-      // Kill gateway process
+      // Destroy the container (kills all processes and releases resources)
       try {
-        const proc = await findExistingMoltbotProcess(this);
-        if (proc) {
-          await proc.kill();
-          console.log('[MAINTENANCE] Gateway process killed');
-        }
+        await this.destroy();
+        console.log('[MAINTENANCE] Container destroyed');
       } catch (err) {
-        console.error('[MAINTENANCE] Error killing process:', err);
+        console.error('[MAINTENANCE] Error destroying container:', err);
       }
 
       return new Response(JSON.stringify({ success: true }), {
