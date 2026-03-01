@@ -48,6 +48,7 @@ export function buildRcloneFlags(config: RcloneSyncConfig): string {
     `--checkers=${config.checkers}`,
     '--fast-list',
     '--s3-no-check-bucket',
+    '--size-only',
   ];
   if (config.bwlimit && config.bwlimit !== '0') {
     flags.push(`--bwlimit=${config.bwlimit}`);

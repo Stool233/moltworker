@@ -51,7 +51,7 @@ EOF
     echo "Rclone configured for bucket: $R2_BUCKET"
 }
 
-RCLONE_FLAGS="--transfers=${SYNC_TRANSFERS:-16} --checkers=${SYNC_CHECKERS:-8} --fast-list --s3-no-check-bucket"
+RCLONE_FLAGS="--transfers=${SYNC_TRANSFERS:-16} --checkers=${SYNC_CHECKERS:-8} --fast-list --s3-no-check-bucket --size-only"
 # Append optional rclone flags from SYNC_* environment variables
 # (using SYNC_ prefix to avoid collision with rclone's built-in RCLONE_* env vars)
 [ -n "$SYNC_BWLIMIT" ] && [ "$SYNC_BWLIMIT" != "0" ] && RCLONE_FLAGS="$RCLONE_FLAGS --bwlimit=$SYNC_BWLIMIT"
