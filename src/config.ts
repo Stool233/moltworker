@@ -22,10 +22,10 @@ export const RCLONE_SETTINGS_KEY = '_system/rclone-settings';
 /** Default rclone sync configuration */
 export const DEFAULT_RCLONE_CONFIG: import('./types').RcloneSyncConfig = {
   enabled: true,
-  transfers: 4,
-  checkers: 4,
-  bwlimit: '10M',
-  tpslimit: 10,
-  maxTransfer: '500M',
-  syncInterval: 120,
+  transfers: 16,
+  checkers: 8,
+  bwlimit: '0',
+  tpslimit: 0,
+  maxTransfer: '0',
+  syncInterval: 30,
 };

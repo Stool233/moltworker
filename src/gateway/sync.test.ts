@@ -34,11 +34,11 @@ function createMockEnvWithBucket(
 describe('buildRcloneFlags', () => {
   it('builds flags from default config', () => {
     const flags = buildRcloneFlags(DEFAULT_RCLONE_CONFIG);
-    expect(flags).toContain('--transfers=4');
-    expect(flags).toContain('--checkers=4');
-    expect(flags).toContain('--bwlimit=10M');
-    expect(flags).toContain('--tpslimit=10');
-    expect(flags).toContain('--max-transfer=500M');
+    expect(flags).toContain('--transfers=16');
+    expect(flags).toContain('--checkers=8');
+    expect(flags).not.toContain('--bwlimit');
+    expect(flags).not.toContain('--tpslimit');
+    expect(flags).not.toContain('--max-transfer');
     expect(flags).toContain('--fast-list');
     expect(flags).toContain('--s3-no-check-bucket');
   });
@@ -231,12 +231,12 @@ describe('syncToR2', () => {
         .mockResolvedValueOnce(createMockExecResult())
         .mockResolvedValueOnce(createMockExecResult('2026-01-27'));
 
-      // Default config uses transfers=4
+      // Default config uses transfers=16
       const env = createMockEnvWithBucket();
       await syncToR2(sandbox, env);
 
       const configCmd = execMock.mock.calls[2][0];
-      expect(configCmd).toContain('--transfers=4');
+      expect(configCmd).toContain('--transfers=16');
       expect(configCmd).toContain("--exclude='.git/**'");
       expect(configCmd).toContain('/root/.openclaw/');
       expect(configCmd).toContain('r2:moltbot-data/openclaw/');
