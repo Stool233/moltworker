@@ -13,6 +13,9 @@ export function buildEnvVars(
 ): Record<string, string> {
   const envVars: Record<string, string> = {};
 
+  // Default provider selection
+  if (env.DEFAULT_PROVIDER) envVars.DEFAULT_PROVIDER = env.DEFAULT_PROVIDER;
+
   // Direct provider keys (preferred)
   if (env.ANTHROPIC_API_KEY) envVars.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
   if (env.ANTHROPIC_MODEL) envVars.ANTHROPIC_MODEL = env.ANTHROPIC_MODEL;

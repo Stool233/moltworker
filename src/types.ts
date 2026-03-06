@@ -7,6 +7,10 @@ export interface MoltbotEnv {
   Sandbox: DurableObjectNamespace<Sandbox>;
   ASSETS: Fetcher; // Assets binding for admin UI static files
   MOLTBOT_BUCKET: R2Bucket; // R2 bucket for persistent storage
+  // Default provider selection: 'anthropic' | 'openai' | 'openrouter' | 'cf-ai-gateway'
+  // When multiple providers are configured, this determines which is the default.
+  // If not set, uses priority order: openrouter > openai > anthropic > cf-ai-gateway
+  DEFAULT_PROVIDER?: string;
   // Direct provider configuration (preferred)
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string; // Optional custom Anthropic API endpoint

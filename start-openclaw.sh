@@ -109,19 +109,36 @@ fi
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "No existing config found, running openclaw onboard..."
 
+    # Select auth args based on DEFAULT_PROVIDER or fallback to priority order
     # Priority: OpenRouter > OpenAI direct > Anthropic direct > Cloudflare AI Gateway
     AUTH_ARGS=""
-    if [ -n "$OPENROUTER_API_KEY" ]; then
-        AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENROUTER_API_KEY"
-    elif [ -n "$OPENAI_API_KEY" ]; then
-        AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY"
-    elif [ -n "$ANTHROPIC_API_KEY" ]; then
-        AUTH_ARGS="--auth-choice apiKey --anthropic-api-key $ANTHROPIC_API_KEY"
-    elif [ -n "$CLOUDFLARE_AI_GATEWAY_API_KEY" ] && [ -n "$CF_AI_GATEWAY_ACCOUNT_ID" ] && [ -n "$CF_AI_GATEWAY_GATEWAY_ID" ]; then
-        AUTH_ARGS="--auth-choice cloudflare-ai-gateway-api-key \
-            --cloudflare-ai-gateway-account-id $CF_AI_GATEWAY_ACCOUNT_ID \
-            --cloudflare-ai-gateway-gateway-id $CF_AI_GATEWAY_GATEWAY_ID \
-            --cloudflare-ai-gateway-api-key $CLOUDFLARE_AI_GATEWAY_API_KEY"
+    _select_auth() {
+        case "$1" in
+            openrouter)
+                [ -n "$OPENROUTER_API_KEY" ] && AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENROUTER_API_KEY" && return 0 ;;
+            openai)
+                [ -n "$OPENAI_API_KEY" ] && AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY" && return 0 ;;
+            anthropic)
+                [ -n "$ANTHROPIC_API_KEY" ] && AUTH_ARGS="--auth-choice apiKey --anthropic-api-key $ANTHROPIC_API_KEY" && return 0 ;;
+            cf-ai-gateway)
+                [ -n "$CLOUDFLARE_AI_GATEWAY_API_KEY" ] && [ -n "$CF_AI_GATEWAY_ACCOUNT_ID" ] && [ -n "$CF_AI_GATEWAY_GATEWAY_ID" ] && \
+                AUTH_ARGS="--auth-choice cloudflare-ai-gateway-api-key \
+                    --cloudflare-ai-gateway-account-id $CF_AI_GATEWAY_ACCOUNT_ID \
+                    --cloudflare-ai-gateway-gateway-id $CF_AI_GATEWAY_GATEWAY_ID \
+                    --cloudflare-ai-gateway-api-key $CLOUDFLARE_AI_GATEWAY_API_KEY" && return 0 ;;
+        esac
+        return 1
+    }
+
+    if [ -n "$DEFAULT_PROVIDER" ]; then
+        _select_auth "$DEFAULT_PROVIDER" || echo "WARNING: DEFAULT_PROVIDER=$DEFAULT_PROVIDER but missing API key, falling back"
+    fi
+
+    # Fallback to priority order if no auth selected yet
+    if [ -z "$AUTH_ARGS" ]; then
+        for _p in openrouter openai anthropic cf-ai-gateway; do
+            _select_auth "$_p" && break
+        done
     fi
 
     openclaw onboard --non-interactive --accept-risk \
@@ -257,10 +274,13 @@ const ANTHROPIC_RECENT = [
     'claude-opus-4-5-20251101',
 ];
 
-let reconciledPrimary = false;
+// ── Register all available providers independently ──
+// Each provider with a valid API key gets registered.
+// DEFAULT_PROVIDER (or fallback priority) determines which is the primary model.
+
+const registeredProviders = {}; // providerName -> primary model string
 
 if (process.env.OPENROUTER_API_KEY) {
-    // OpenRouter — highest priority, OpenAI-compatible API
     const openrouterModel = process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
     const openrouterSpecs = OPENROUTER_MODELS[openrouterModel] || { name: openrouterModel, contextWindow: 262144, maxTokens: 65536 };
 
@@ -278,14 +298,13 @@ if (process.env.OPENROUTER_API_KEY) {
         api: 'openai-completions',
         models: openrouterModelsArray,
     };
-    config.agents.defaults.model = { primary: 'openrouter/' + openrouterModel };
-    reconciledPrimary = true;
-    console.log('Provider reconciled: OpenRouter, model=' + openrouterModel
-        + ' (' + openrouterModelsArray.length + ' models registered'
+    registeredProviders['openrouter'] = 'openrouter/' + openrouterModel;
+    console.log('Provider registered: OpenRouter, model=' + openrouterModel
+        + ' (' + openrouterModelsArray.length + ' models'
         + ', context=' + openrouterSpecs.contextWindow + ', maxTokens=' + openrouterSpecs.maxTokens + ')');
+}
 
-} else if (process.env.OPENAI_API_KEY) {
-    // OpenAI direct — register primary + all known models
+if (process.env.OPENAI_API_KEY) {
     const openaiModel = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
     const openaiSpecs = OPENAI_MODELS[openaiModel] || { name: openaiModel, contextWindow: 200000, maxTokens: 65536 };
 
@@ -307,14 +326,13 @@ if (process.env.OPENROUTER_API_KEY) {
     };
     // Clean up stale 'openai' provider that older versions may have created
     delete config.models.providers['openai'];
-    config.agents.defaults.model = { primary: 'openai-codex/' + openaiModel };
-    reconciledPrimary = true;
-    console.log('Provider reconciled: OpenAI Codex (API key), model=' + openaiModel
-        + ' (' + openaiModelsArray.length + ' models registered'
+    registeredProviders['openai'] = 'openai-codex/' + openaiModel;
+    console.log('Provider registered: OpenAI Codex, model=' + openaiModel
+        + ' (' + openaiModelsArray.length + ' models'
         + ', context=' + openaiSpecs.contextWindow + ', maxTokens=' + openaiSpecs.maxTokens + ')');
+}
 
-} else if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
-    // Anthropic direct — register primary + recent models
+if (process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_BASE_URL) {
     const anthropicModelsArray = [];
     anthropicModelsArray.push({ id: anthropicModel, name: specs.name, contextWindow: specs.contextWindow, maxTokens: specs.maxTokens });
     for (const mid of ANTHROPIC_RECENT) {
@@ -330,14 +348,38 @@ if (process.env.OPENROUTER_API_KEY) {
         api: 'anthropic-messages',
         models: anthropicModelsArray,
     };
-    config.agents.defaults.model = { primary: 'anthropic/' + anthropicModel };
-    reconciledPrimary = true;
-    console.log('Provider reconciled: Anthropic direct, model=' + anthropicModel
-        + ' (' + anthropicModelsArray.length + ' models registered'
+    registeredProviders['anthropic'] = 'anthropic/' + anthropicModel;
+    console.log('Provider registered: Anthropic direct, model=' + anthropicModel
+        + ' (' + anthropicModelsArray.length + ' models'
         + ', context=' + specs.contextWindow + ', maxTokens=' + specs.maxTokens + ')');
 }
-// Note: Cloudflare AI Gateway case is already handled by the
-// CF_AI_GATEWAY_MODEL section below.
+
+// ── Select primary model based on DEFAULT_PROVIDER or fallback priority ──
+const PROVIDER_PRIORITY = ['openrouter', 'openai', 'anthropic'];
+const defaultProvider = process.env.DEFAULT_PROVIDER;
+let reconciledPrimary = false;
+
+if (defaultProvider && registeredProviders[defaultProvider]) {
+    config.agents.defaults.model = { primary: registeredProviders[defaultProvider] };
+    reconciledPrimary = true;
+    console.log('Default provider set by DEFAULT_PROVIDER=' + defaultProvider
+        + ', primary=' + registeredProviders[defaultProvider]);
+} else if (defaultProvider && !registeredProviders[defaultProvider]) {
+    console.warn('WARNING: DEFAULT_PROVIDER=' + defaultProvider
+        + ' but no API key configured for this provider. Falling back to priority order.');
+}
+
+if (!reconciledPrimary) {
+    for (const p of PROVIDER_PRIORITY) {
+        if (registeredProviders[p]) {
+            config.agents.defaults.model = { primary: registeredProviders[p] };
+            reconciledPrimary = true;
+            console.log('Default provider (by priority): ' + p
+                + ', primary=' + registeredProviders[p]);
+            break;
+        }
+    }
+}
 
 // AI Gateway model override (CF_AI_GATEWAY_MODEL=provider/model-id)
 // Adds a provider entry for any AI Gateway provider and sets it as default model.
